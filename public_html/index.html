@@ -58,6 +58,7 @@
         div#canvas { width: 1024px; height: 768px; background: #EEE; margin: 30px auto; border: 1px dashed black; cursor: crosshair; position: relative; }
         
         .bit { display: block; position: absolute; background: transparent; border: 0; outline: 0; max-width: 320px; }
+		.bit:not(.being-dragged) { transition: top 0.3s, left 0.3s; }
         .bit_handle { position: absolute; left: 0px; top: 0px; right: 0; height: 10px; background: #B7B7B7; display: none; cursor: move; }
         .bit_delete { position: absolute; left: 0px; top: 0px; width: 10px; height: 10px; background: red; display: none; cursor: pointer; }
         .bit:hover .bit_delete,
@@ -106,6 +107,48 @@
 		function appendBit(bit,id,focus)
 		{
 			if (typeof focus == 'undefined') focus = false;
+
+            if  (  bit.text && bit.text.indexOf("data:image/") > -1 ) {
+                debugger;
+              var $bit = $($('.template-bit').html()) // or children.clone
+                .attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
+                .attr('is-image', true)
+                .css({top: bit.top, left: bit.left})
+                .find('.bit_text')
+                    .html($(bit.text))
+                    .attr('is-image', true)
+                    .addClass('image')
+                .end()
+                .appendTo('#canvas')
+                .draggable({
+                    handle: ".bit_handle",
+                    containment: "parent",
+					start: function() {
+						$(this).addClass('being-dragged');	
+					},
+                    stop: function(e,ui) { // ou stop comme on veut // @todo foutre ça ailleurs
+                        socket.emit('move',{id: id, left: ui.position.left, top: ui.position.top});
+                    }
+                });  
+            } else {
+               var $bit = $($('.template-bit').html()) // or children.clone
+                .attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
+                .css({top: bit.top, left: bit.left})
+                .find('.bit_text')
+                    .html(escapeAndNl2br(bit.text || ''))
+                .end()
+                .appendTo('#canvas')
+                .draggable({
+                    handle: ".bit_handle",
+                    containment: "parent",
+					start: function() {
+						$(this).addClass('being-dragged');	
+					},
+                    stop: function(e,ui) { // ou stop comme on veut // @todo foutre ça ailleurs
+                        socket.emit('move',{id: id, left: ui.position.left, top: ui.position.top});
+                    }
+                }); 
+            }
 			
 			var $bit = $($('.template-bit').html()) // or children.clone
 				.attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
