@@ -122,8 +122,11 @@
 					}
 				});
 			
-			if (focus)
-				$bit.find('.bit_text').focus()
+			if (focus) {
+				$bit.find('.bit_text').focus();
+                $bit.find('.bit_text').focusout(deleteIfEmpty);
+                //debugger;
+            }
 		}
         
         // var ff = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
@@ -154,7 +157,7 @@
                 var id = Math.floor(Math.random()*100000); // magic is happening
                 appendBit({left: relX, top: relY}, id, true);
                 
-                socket.emit('new',{id: id, top:relY, left:relX});
+                socket.emit('new',{id: id, top:relY, left:relX}); //todo wait before edit ?
 
             });
 			
@@ -188,6 +191,14 @@
         });
         // @todo encodage
         // remove all
+   
+        function deleteIfEmpty(bit) {
+            if ( $(this).text().length < 1 ) {
+                socket.emit('delete',$(this).parent().data('id'));
+                $(this).parent().remove();
+            }
+        }
+
     </script>
 </body>
 </html>
