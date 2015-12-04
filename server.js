@@ -15,16 +15,11 @@ var bits = {};
 
 // Emit welcome message on connection
 io.sockets.on('connection', function(socket) {
-
-    console.log(bits);
     
     socket.emit('catchUp',bits);
     
     socket.on('new', function(obj) {
         bits[obj.id] = {top: obj.top, left: obj.left, text: ''}
-		
-		console.log('new');
-    console.log(bits);
         socket.broadcast.emit('new',obj);
     });
     
@@ -44,11 +39,8 @@ io.sockets.on('connection', function(socket) {
     });
     
     socket.on('edit', function(obj) {
-		
         if (typeof bits[obj.id] === 'undefined') return;
-        
-			console.log('edit');
-    console.log(bits);
+		
         bits[obj.id].text = obj.text;
         socket.broadcast.emit('edit',obj);
     });
