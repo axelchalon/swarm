@@ -1,12 +1,13 @@
+Swarm is a public online whiteboard. See it in action at http://swarm.ovh
+
 # TODO
-- [ ] Clean up code / better coding style
-- [ ] Improve everything
+See "issues" on GitHub.
 
 # Installation
 - npm install
 
 # Deployment
-- screen/tmux?
+- screen/tmux
 
-# Notes
-It's spaghetti code for the moment. Just wanted to launch the website as an MVP.
+# Contributing
+Pull requests are welcome! Feel free to contribute! 
