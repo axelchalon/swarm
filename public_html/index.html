@@ -235,6 +235,13 @@
                 $(this).parent().remove();
             }
         }
+		
+		window.onbeforeunload = function() {
+			if (Object.keys(editTimeouts).length > 0)
+    			return 'Please wait a short while so we can save your message.';
+			else
+				return null;
+		}
 
     </script>
 </body>
