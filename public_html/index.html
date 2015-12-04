@@ -118,7 +118,11 @@
 				.draggable({
 					handle: ".bit_handle",
 					containment: "parent",
+					start: function(e) {
+						$(this).addClass('being-dragged');
+					},
 					stop: function(e,ui) { // ou stop comme on veut // @todo foutre ça ailleurs
+						$(this).removeClass('being-dragged');
 						socket.emit('move',{id: id, left: ui.position.left, top: ui.position.top});
 					}
 				});
