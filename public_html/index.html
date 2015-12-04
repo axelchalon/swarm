@@ -66,11 +66,11 @@
         div#canvas { width: 1024px; height: 768px; background: #EEE; margin: 0 auto; border: 1px dashed black; cursor: crosshair; position: relative; }
         .bit { display: block; position: absolute; background: transparent; border: 0; outline: 0; max-width: 320px; }
 		.bit:not(.being-dragged) { transition: top 0.3s, left 0.3s; }
-        .bit_handle { position: absolute; left: 0px; top: 0px; right: 0; height: 10px; background: #B7B7B7; display: none; cursor: move; }
-        .bit_delete { position: absolute; left: 0px; top: 0px; width: 10px; height: 10px; background: red; display: none; cursor: pointer; }
-        .bit:hover .bit_delete,
-		.bit:hover .bit_handle { display: block; }
-        .bit_text { padding: 0 5px; background: white; margin: 5px; padding: 5px; border-radius: 5px; cursor: text; border: 1px solid #C5C5C5; outline: 0; }
+        .bit__handle { position: absolute; left: 0px; top: 0px; right: 0; height: 10px; background: #B7B7B7; display: none; cursor: move; }
+        .bit__delete { position: absolute; left: 0px; top: 0px; width: 10px; height: 10px; background: red; display: none; cursor: pointer; }
+        .bit:hover .bit__delete,
+		.bit:hover .bit__handle { display: block; }
+        .bit__text { padding: 0 5px; background: white; margin: 5px; padding: 5px; border-radius: 5px; cursor: text; border: 1px solid #C5C5C5; outline: 0; }
 		
 		
     
@@ -94,9 +94,9 @@
 		<!-- @todo if ff then plaintext-only ? Rich text can be entered in FF -->
 		<script type="text/template" class="template template-bit">
 			<div class="bit">
-				<div class="bit_handle"></div>
-				<div class="bit_delete" title="Supprimer"></div>
-				<div class="bit_text" contenteditable></div>
+				<div class="bit__handle"></div>
+				<div class="bit__delete" title="Supprimer"></div>
+				<div class="bit__text" contenteditable></div>
 			</div>
 		</script>
 	</div>
@@ -133,12 +133,12 @@
 			var $bit = $($('.template-bit').html()) // or children.clone
 				.attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
 				.css({top: bit.top, left: bit.left})
-				.find('.bit_text')
+				.find('.bit__text')
 					.html(escapeAndNl2br(bit.text || ''))
 				.end()
 				.appendTo('#canvas')
 				.draggable({
-					handle: ".bit_handle",
+					handle: ".bit__handle",
 					containment: "parent",
 					start: function(e) {
 						$(this).addClass('being-dragged');
@@ -150,11 +150,11 @@
 				});
 			
 			if (focus) {
-				$bit.find('.bit_text').focus();
+				$bit.find('.bit__text').focus();
             }
 			
 			
-            $bit.find('.bit_text').focusout(deleteIfEmpty);
+            $bit.find('.bit__text').focusout(deleteIfEmpty);
 		}
         
         // var ff = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
@@ -175,7 +175,7 @@
             $.each(bits,function(id,bit){ appendBit(bit,id); });
 			
             $('#canvas').click(function(e){
-                if ($(e.target).is('.bit_delete'))
+                if ($(e.target).is('.bit__delete'))
                 {
                     socket.emit('delete',$(e.target).parent().data('id'));
                     $(e.target).parent().remove();
@@ -195,7 +195,7 @@
 
             });
 			
-			$('#canvas').on('input','.bit_text',function(e){ // todo on input sur bit-text?
+			$('#canvas').on('input','.bit__text',function(e){ // todo on input sur bit-text?
 					var $bit = $(e.target);
 					var id = $bit.closest('.bit').data('id');
 					if (typeof(editTimeouts[id]) !== 'undefined')
@@ -220,7 +220,7 @@
                $('[data-id='+id+']').remove(); 
             });
             socket.on('edit',function(bit){
-               $('[data-id='+bit.id+'] .bit_text').html(escapeAndNl2br(bit.text)); 
+               $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text)); 
             });
         });
         // @todo encodage
