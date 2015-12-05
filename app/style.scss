@@ -98,14 +98,14 @@ small {
 			
 			.bit__handle {
 				display: none;
-				position: absolute; left: -5px; top: -5px; right: 0; height: 10px;
+				position: absolute; left: -5px; top: 0px; right: 0; height: 10px;
 				background: #B7B7B7;
 				cursor: move;
 			}
 			
 			.bit__delete {
 				display: none;
-				position: absolute; left: -5px; top: -5px; width: 10px; height: 10px;
+				position: absolute; left: -5px; top: 0px; width: 10px; height: 10px;
 				background: red;
 				cursor: pointer;
 			}
@@ -119,6 +119,7 @@ small {
 			.bit__text {
 				background: white;
 				padding: 5px;
+				margin-top: 5px;
 				border-radius: 5px;
 				cursor: text;
 				border: 1px solid #C5C5C5;

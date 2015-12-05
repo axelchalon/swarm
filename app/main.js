@@ -21,12 +21,11 @@ function escapeAndNl2br(text) {
 var editTimeouts = {};
 
 // Displays a bit
-function appendBit(bit,id,focus)
+function appendBit(bit,id,created_by_user)
 {
 	if (typeof focus == 'undefined') focus = false;
 
 	var $bit = $($('.template-bit').html()) // or children.clone
-		.attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
 		.css({top: bit.top, left: bit.left})
 		.find('.bit__text')
 			.html(escapeAndNl2br(bit.text || ''))
@@ -40,13 +39,17 @@ function appendBit(bit,id,focus)
 			},
 			stop: function(e,ui) { // ou stop comme on veut // @todo foutre ça ailleurs
 				$(this).removeClass('being-dragged');
-				socket.emit('move',{id: id, left: ui.position.left, top: ui.position.top});
+				// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
+				socket.emit('move',{id: $(this).data('id'), left: ui.position.left, top: ui.position.top});
 			}
 		});
 
-	if (focus) {
+	if (created_by_user) {
 		$bit.find('.bit__text').focus();
+		$bit.attr('data-tempid',id) // rather than .data() so that we can search for an id using CSS selectors
 	}
+	else
+		$bit.attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
 
 
 	$bit.find('.bit__text').focusout(deleteIfEmpty);
@@ -67,7 +70,7 @@ socket.on('connect_error', function(e) {
 socket.on('catchUp',function(bits) {
 	$('.page').removeClass('active');
 	$('.page--swarm').addClass('active');
-	$.each(bits,function(id,bit){ appendBit(bit,id); });
+	$.each(bits,function(i,bit){ console.log(bit); appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
 
 	$('#canvas').click(function(e){
 		if ($(e.target).is('.bit__delete'))
@@ -82,7 +85,7 @@ socket.on('catchUp',function(bits) {
 
 		var parentOffset = $(this).offset();
 		var relX = e.pageX - parentOffset.left;
-		var relY = e.pageY - parentOffset.top - 27;
+		var relY = e.pageY - parentOffset.top - 5;
 		var id = Math.floor(Math.random()*100000); // magic is happening
 		appendBit({left: relX, top: relY}, id, true);
 
@@ -91,22 +94,33 @@ socket.on('catchUp',function(bits) {
 	});
 
 	$('#canvas').on('input','.bit__text',function(e){ // todo on input sur bit-text?
-			var $bit = $(e.target);
-			var id = $bit.closest('.bit').data('id');
+			var $bit_message = $(e.target);
+			var $bit = $bit_message.closest('.bit')
+			var id = $bit.data('tempid') || $bit.data('id'); // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
 			if (typeof(editTimeouts[id]) !== 'undefined')
 				clearInterval(editTimeouts[id]);
 
-			editTimeouts[id] = setTimeout(function() {
-				// var $el_with_linebreaks = $bit.clone().find("br").replaceWith("\n").end();
-				var $el_with_linebreaks = $bit.clone();
+			var sendTextToServer = function() {
+				if (typeof($bit.data('id')) === 'undefined')
+				{
+					editTimeouts[id] = setTimeout(sendTextToServer,500);
+					return;
+				}
+				// var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
+				var $el_with_linebreaks = $bit_message.clone();
 				// var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
 				var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
 				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
-				socket.emit('edit',{id: id, text: plaintext});
+				
+				socket.emit('edit',{id: $bit.data('id'), text: plaintext});
 				delete editTimeouts[id];
-			},500);
+			}
+			editTimeouts[id] = setTimeout(sendTextToServer,500);
 	});
-
+	
+	socket.on('tempIdIsId',function(obj){
+	   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
+	});
 	socket.on('new',function(bit){
 	   appendBit({left: bit.left, top: bit.top}, bit.id)
 	});
@@ -125,8 +139,7 @@ socket.on('catchUp',function(bits) {
 
 function deleteIfEmpty(bit) {
 	if ( $(this).text().length < 1 ) {
-		socket.emit('delete',$(this).parent().data('id'));
-		$(this).parent().remove();
+		$(this).siblings('.bit__delete').click();
 	}
 }
 
