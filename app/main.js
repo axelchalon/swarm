@@ -97,8 +97,10 @@ socket.on('catchUp',function(bits) {
 				clearInterval(editTimeouts[id]);
 
 			editTimeouts[id] = setTimeout(function() {
-				var $el_with_linebreaks = $bit.clone().find("br").replaceWith("\n").end();
-				var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
+				// var $el_with_linebreaks = $bit.clone().find("br").replaceWith("\n").end();
+				var $el_with_linebreaks = $bit.clone();
+				// var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
+				var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
 				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
 				socket.emit('edit',{id: id, text: plaintext});
 				delete editTimeouts[id];
