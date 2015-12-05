@@ -4,6 +4,7 @@
   "description": "Public online whiteboard",
   "main": "server.js",
   "dependencies": {
+    "nedb": "^1.5.0",
     "socket.io": "^1.3.7"
   },
   "devDependencies": {
