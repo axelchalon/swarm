@@ -5,6 +5,7 @@ See "issues" on GitHub.
 
 # Installation
 - npm install
+- brunch b
 
 # Deployment
 - screen/tmux
