@@ -84,6 +84,17 @@ small {
 		cursor: crosshair;
 		position: relative;
 		
+		.swarm-name {
+			position: absolute;
+			z-index: 0;
+			color: #CFCFCF;
+			font-size: 30px;
+			top: 50%;
+			left: 50%;
+			transform: translateX(-50%) translateY(-50%);
+			pointer-events: none;
+		}
+		
 		.bit {
 			display: block;
 			position: absolute;

@@ -71,6 +71,7 @@ socket.on('connect', function() {
 	var room_name = window.location.href.match(/\/[^/]+$/);
 	if (room_name == null) room_name = '';
 	else room_name = room_name[0].substr(1);
+	$('#canvas').prepend($('<h1></h1>').addClass('swarm-name').text(room_name.length == 0 ? 'swarm' : room_name));
 	socket.emit('swarm',room_name);
 });
 

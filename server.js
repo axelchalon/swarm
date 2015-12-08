@@ -17,6 +17,7 @@ io.sockets.on('connection', function(socket) {
 
 	socket.on('swarm', function(swarm_name) {
 		if (swarm_name.length == 0) swarm_name = '/';
+		swarm_name = swarm_name.toLowerCase();
 		socket.swarm_name = swarm_name;
 		socket.join(swarm_name);
 		
