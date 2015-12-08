@@ -67,6 +67,13 @@ socket.on('connect_error', function(e) {
 	$('.page--internal-error').addClass('active');
 });
 
+socket.on('connect', function() {
+	var room_name = window.location.href.match(/\/[^/]+$/);
+	if (room_name == null) room_name = '';
+	else room_name = room_name[0].substr(1);
+	socket.emit('swarm',room_name);
+});
+
 socket.on('catchUp',function(bits) {
 	$('.page').removeClass('active');
 	$('.page--swarm').addClass('active');

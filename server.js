@@ -14,22 +14,28 @@ var io = require('socket.io').listen(app);
 
 // Emit welcome message on connection
 io.sockets.on('connection', function(socket) {
-    
-	db.find({}, function (err, docs) {
-  		if (err)
-		{
-			console.log('CATCH UP ERROR');
-			console.log(err);
-		}
-		else
-		{
-			var mappedDocs = docs.map(function(obj) { return {top: obj.top, left: obj.left, text: obj.text, id: obj._id}; });
-			socket.emit('catchUp',mappedDocs);
-		}
+
+	socket.on('swarm', function(swarm_name) {
+		if (swarm_name.length == 0) swarm_name = '/';
+		socket.swarm_name = swarm_name;
+		socket.join(swarm_name);
+		
+		db.find({swarm: swarm_name}, function (err, docs) {
+			if (err)
+			{
+				console.log('CATCH UP ERROR');
+				console.log(err);
+			}
+			else
+			{
+				var mappedDocs = docs.map(function(obj) { return {top: obj.top, left: obj.left, text: obj.text, id: obj._id}; });
+				socket.emit('catchUp',mappedDocs);
+			}
+		});
 	});
-	
+			 
     socket.on('new', function(obj) {
-		db.insert({top: obj.top, left: obj.left, text: ''}, function(err, newDoc) {	
+		db.insert({swarm: socket.swarm_name, top: obj.top, left: obj.left, text: ''}, function(err, newDoc) {	
 			console.log('insert new');
 			socket.broadcast.emit('new',{id: newDoc._id, top: newDoc.top, left: newDoc.left, text: newDoc.text});
 			socket.emit('tempIdIsId',{temp_id: obj.id, id:newDoc._id});
@@ -48,7 +54,7 @@ io.sockets.on('connection', function(socket) {
 				console.log(err);
 			}
 			else
-				socket.broadcast.emit('move',{id: obj.id, top: obj.top, left: obj.left});
+				socket.broadcast.to(socket.swarm_name).emit('move',{id: obj.id, top: obj.top, left: obj.left});
 		});
 	});
     
@@ -60,7 +66,7 @@ io.sockets.on('connection', function(socket) {
 				console.log(err);
 			}
 			else
-				socket.broadcast.emit('delete',id);
+				socket.broadcast.to(socket.swarm_name).emit('delete',id);
 		});
     });
     
@@ -74,7 +80,7 @@ io.sockets.on('connection', function(socket) {
 				console.log(err);
 			}
 			else
-				socket.broadcast.emit('edit',{id: obj.id, text: obj.text});
+				socket.broadcast.to(socket.swarm_name).emit('edit',{id: obj.id, text: obj.text});
 		});
         
     });
