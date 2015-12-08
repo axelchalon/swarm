@@ -1,4 +1,4 @@
-﻿Options +FollowSymlinks -Indexes
+Options +FollowSymlinks -Indexes
 RewriteEngine On
 
 #alias all ATTENTION FICHIER PHP
