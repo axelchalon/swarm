@@ -106,8 +106,8 @@ socket.on('catchUp',function(bits) {
 					editTimeouts[id] = setTimeout(sendTextToServer,500);
 					return;
 				}
-				// var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-				var $el_with_linebreaks = $bit_message.clone();
+				var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
+				// var $el_with_linebreaks = $bit_message.clone();
 				// var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
 				var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
 				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
