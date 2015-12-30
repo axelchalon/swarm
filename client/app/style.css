@@ -1,0 +1,155 @@
+/* line 1, c:/wamp/www/swarm/client/app/style.scss */
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline; }
+
+/* line 21, c:/wamp/www/swarm/client/app/style.scss */
+article, aside, details, figcaption, figure,
+footer, header, hgroup, menu, nav, section {
+  display: block; }
+
+/* line 25, c:/wamp/www/swarm/client/app/style.scss */
+body {
+  line-height: 1; }
+
+/* line 28, c:/wamp/www/swarm/client/app/style.scss */
+ol, ul {
+  list-style: none; }
+
+/* line 31, c:/wamp/www/swarm/client/app/style.scss */
+blockquote, q {
+  quotes: none; }
+
+/* line 34, c:/wamp/www/swarm/client/app/style.scss */
+blockquote:before, blockquote:after,
+q:before, q:after {
+  content: '';
+  content: none; }
+
+/* line 39, c:/wamp/www/swarm/client/app/style.scss */
+table {
+  border-collapse: collapse;
+  border-spacing: 0; }
+
+/* --- */
+/* line 46, c:/wamp/www/swarm/client/app/style.scss */
+body,
+html {
+  width: 100%;
+  height: 100%;
+  line-height: 1.25;
+  font-family: Verdana; }
+
+/* line 54, c:/wamp/www/swarm/client/app/style.scss */
+small {
+  font-size: 0.4em;
+  font-style: italic; }
+
+/* line 59, c:/wamp/www/swarm/client/app/style.scss */
+.page:not(.active) {
+  display: none; }
+
+/* line 63, c:/wamp/www/swarm/client/app/style.scss */
+.page--loading,
+.page--internal-error {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: 25px; }
+
+/* line 71, c:/wamp/www/swarm/client/app/style.scss */
+.page--swarm {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center; }
+  /* line 78, c:/wamp/www/swarm/client/app/style.scss */
+  .page--swarm div#canvas {
+    width: 1024px;
+    height: 768px;
+    background: #EEE;
+    margin: 0 auto;
+    border: 1px dashed black;
+    cursor: crosshair;
+    position: relative; }
+    /* line 87, c:/wamp/www/swarm/client/app/style.scss */
+    .page--swarm div#canvas .swarm-name {
+      position: absolute;
+      z-index: 0;
+      color: #CFCFCF;
+      font-size: 30px;
+      top: 50%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-50%);
+      pointer-events: none; }
+    /* line 98, c:/wamp/www/swarm/client/app/style.scss */
+    .page--swarm div#canvas .bit {
+      display: block;
+      position: absolute;
+      background: transparent;
+      border: 0;
+      outline: 0;
+      max-width: 320px;
+      font-size: 12px;
+      line-height: 1.25; }
+      /* line 106, c:/wamp/www/swarm/client/app/style.scss */
+      .page--swarm div#canvas .bit:not(.being-dragged) {
+        transition: top 0.3s, left 0.3s; }
+      /* line 110, c:/wamp/www/swarm/client/app/style.scss */
+      .page--swarm div#canvas .bit .bit__handle {
+        display: none;
+        position: absolute;
+        left: -5px;
+        top: 0px;
+        right: 0;
+        height: 10px;
+        background: #B7B7B7;
+        cursor: move; }
+      /* line 117, c:/wamp/www/swarm/client/app/style.scss */
+      .page--swarm div#canvas .bit .bit__delete {
+        display: none;
+        position: absolute;
+        left: -5px;
+        top: 0px;
+        width: 10px;
+        height: 10px;
+        background: red;
+        cursor: pointer; }
+      /* line 124, c:/wamp/www/swarm/client/app/style.scss */
+      .page--swarm div#canvas .bit:hover .bit__delete,
+      .page--swarm div#canvas .bit:hover .bit__handle {
+        display: block; }
+      /* line 129, c:/wamp/www/swarm/client/app/style.scss */
+      .page--swarm div#canvas .bit .bit__text {
+        background: white;
+        padding: 5px;
+        margin-top: 5px;
+        border-radius: 5px;
+        cursor: text;
+        border: 1px solid #C5C5C5;
+        outline: 0;
+        font-size: 12px;
+        line-height: 1.2; }
+
+
+/*# sourceMappingURL=style.css.map*/
