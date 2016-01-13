@@ -80,7 +80,7 @@ socket.on('catchUp',function(bits) {
 	$('.page--swarm').addClass('active');
 	$.each(bits,function(i,bit){ console.log(bit); appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
 
-	$('#canvas').click(function(e){
+	$('#canvas').on('mousedown',function(e){
 		if ($(e.target).is('.bit__delete'))
 		{
 			socket.emit('delete',$(e.target).parent().data('id'));
