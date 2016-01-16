@@ -78,7 +78,7 @@ socket.on('connect', function() {
 socket.on('catchUp',function(bits) {
 	$('.page').removeClass('active');
 	$('.page--swarm').addClass('active');
-	$.each(bits,function(i,bit){ console.log(bit); appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
+	$.each(bits,function(i,bit){ appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
 
 	$('#canvas').on('mousedown',function(e){
 		if ($(e.target).is('.bit__delete'))
@@ -98,7 +98,7 @@ socket.on('catchUp',function(bits) {
 		appendBit({left: relX, top: relY}, id, true);
 
 		socket.emit('new',{id: id, top:relY, left:relX}); //todo wait before edit ?
-
+		return false;
 	});
 
 	$('#canvas').on('input','.bit__text',function(e){ // todo on input sur bit-text?
