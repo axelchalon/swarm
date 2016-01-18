@@ -1,40 +1,133 @@
-var createStore = Redux.createStore;
+'use strict';
 
-var BitStore = createStore( (state, action) => {
+var createStore = Redux.createStore;
+var Component = React.Component;
+
+var store = createStore( (state, action) => {
 	
 	console.warn('REDUCER');
 	console.log(state,action);
 	
-	if (action.type == 'HYDRATE')
-		{
-			return { bits: action.bits }
-		}
+	switch (action.type)
+	{
+		case 'HYDRATE':
+			return Object.assign({}, state, { bits: action.bits });
+			break;
+		case 'CHANGE_SWARM':
+			return Object.assign({}, state, { swarmName: action.swarmName });
+			break;
+		case 'ADD_BIT':
+			return Object.assign({}, state, { bits: [...state.bits, action.bit] });
+			break;
+		case 'DELETE_BIT':
+			return Object.assign({}, state, { bits: state.bits.filter(bit => (bit.id != action.id)) });
+			break;
+		default:
+			return { bits: [], swarmName: null }
+	}
+
 	
-	return {
-		bits: [
-			{text: 'abc', id: 1},
-			{text: 'def', id: 2}
-		]
-	};
 });
 
 
-const Bit = (props) => {
-	return (
-	<div className="bit">
-				<div className="bit__handle"></div>
-				<div className="bit__delete" title="Supprimer"></div>
-				<div className="bit__text" contentEditable>{props.text}</div>
-	</div>
-	)
+class Bit extends Component {
+	
+	componentDidMount() {
+		var $el = $(ReactDOM.findDOMNode(this));
+		var that = this;
+		$el.draggable({
+				handle: ".bit__handle",
+				containment: "parent",
+				start: function(e) {
+					$(this).addClass('being-dragged');
+				},
+				stop: function(e,ui) { // ou stop comme on veut // @todo foutre Ã§a ailleurs
+					$(this).removeClass('being-dragged');
+					// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
+					// @todo check if not tempId
+					console.log({id: that.props.id, left: ui.position.left, top: ui.position.top});
+					socket.emit('move',{id: that.props.id, left: ui.position.left, top: ui.position.top});
+				}
+			});
+  	}
+	
+	render() {
+		
+		console.log(this);
+		
+		this.editTimeout = null;
+		
+		var onMouseDown = function(e){
+			console.log(this.lol);
+			e.stopPropagation(); // for canvas onMouseDown
+			return false;
+		};
+		
+		var onClickDelete = function(e) {
+			socket.emit('delete',this.props.id);
+			store.dispatch({type: 'DELETE_BIT', id: this.props.id});
+		}
+		
+		var onInput = function(e) {
+			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
+				if (this.props.id == null)
+				{
+					this.editTimeout = setTimeout(sendTextToServer,500); // @todo accumule!
+					return;
+				}
+				
+				var $bit_message = $(ReactDOM.findDOMNode(this)).find('.bit__text'); // this.refs.text
+				var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
+				var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
+				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
+				
+				socket.emit('edit',{id: this.props.id, text: plaintext});
+			}
+			
+			if (this.editTimeout !== null) // https://jsperf.com/null-check-cleartimeout-vs-cleartimeout-null
+				clearTimeout(this.editTimeout);
+			
+			this.editTimeout = setTimeout(sendTextToServer.bind(this),500);
+		}
+		
+		return (
+		<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
+					<div className="bit__handle"></div>
+					<div className="bit__delete" title="Supprimer" onClick={onClickDelete.bind(this)}></div>
+					<div className="bit__text" contentEditable onInput={onInput.bind(this)}>{this.props.text}</div>
+		</div>
+		)
+	}
 }
 
 const Canvas = (props) => {
+	
+	var roomDisplayName = store.getState().swarmName || 'swarm';
+
+	var onMouseDown = function(e){
+		/*if( e.target !== this )
+			return;*/
+		
+		console.log(this);
+		console.log(e.target);
+
+		var parentOffset = $(e.target).offset();
+		var relX = e.pageX - parentOffset.left;
+		var relY = e.pageY - parentOffset.top - 5;
+		
+		// dans l'action "createBit"
+		var temp_id = Math.floor(Math.random()*100000); // magic is happening
+		store.dispatch({type: 'ADD_BIT', bit: { text: '', left: relX, top: relY, id: null, temp_id: temp_id, get_id_promise: 'toto'} });
+
+		// socket.emit('new',{temp_id: id, top:relY, left:relX}); //todo wait before edit ?
+		return false;
+	};
+	
 	return (
-	<div id="canvas">
-		<h1 className="swarm-name">{props.roomDisplayName}</h1>
-		{BitStore.getState().bits.map( bit => 
-			<Bit key={bit.id} text={bit.text}/>
+	<div id="canvas" onMouseDown={onMouseDown}>
+		<h1 className="swarm-name">{roomDisplayName}</h1>
+		{store.getState().bits.map( bit => 
+			<Bit key={bit.id} id={bit.id} text={bit.text} left={bit.left} top={bit.top}/>
 		)}
 	</div>
 	);
@@ -62,23 +155,25 @@ socket.on('connect_error', function(e) {
 
 socket.on('connect', function() { // FSM pour éviter les bugs? refresh quand re-connect?
 	
-	var room_name = window.location.href.match(/\/([^/]+)$/);
-	if (room_name == null) room_name = '';
-	else room_name = room_name[1];
+	var roomName = window.location.href.match(/\/([^/]+)$/);
+	if (roomName == null) roomName = '';
+	else roomName = roomName[1];
+	store.dispatch({type: 'CHANGE_SWARM', swarmName: roomName})
 	
-	socket.emit('swarm',room_name);
+	socket.emit('swarm',roomName);
 	
-	var room_display_name = room_name.length == 0 ? 'swarm' : room_name; // modif le store
+	var room_display_name = roomName.length == 0 ? 'swarm' : roomName; // modif le store
+	
 	
 	
 	const render = () => {
 		ReactDOM.render(
-		<Canvas roomDisplayName={room_display_name} />,
+		<Canvas/>,
 		document.querySelector('.swarm__app')
 		)
 	};
 	
-	BitStore.subscribe(render);
+	store.subscribe(render);
 	render();
 	
 });
@@ -89,28 +184,11 @@ socket.on('catchUp',function(bits) {
 	$('.page').removeClass('active');
 	$('.page--swarm').addClass('active'); // @todo utility function showPage('swarm');
 	
-	console.warn('CATCHUP, DISPATCH HYDRATE');
-	BitStore.dispatch({type: 'HYDRATE', bits: bits})
-	console.log(BitStore.getState());
+	store.dispatch({type: 'HYDRATE', bits: bits})
+	console.log(store.getState());
+	/*
+
 	
-	/*$.each(bits,function(i,bit){ appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
-
-	// tout ça dans elm react canvas
-	$('#canvas').on('mousedown',function(e){
-		if( e.target !== this )
-			return;
-
-		var parentOffset = $(this).offset();
-		var relX = e.pageX - parentOffset.left;
-		var relY = e.pageY - parentOffset.top - 5;
-		
-		// dans l'action "createBit"
-		var id = Math.floor(Math.random()*100000); // magic is happening
-		store.push({left: relX, top: relY, temp_id: xx, get_id_promise: newPromise focus: true});
-
-		socket.emit('new',{temp_id: id, top:relY, left:relX}); //todo wait before edit ?
-		return false;
-	});
 
 	
 	
