@@ -1,150 +1,142 @@
-'use strict';
+var createStore = Redux.createStore;
 
-// The temporary <div/> is to perform HTML entity encoding reliably.
-//
-// document.createElement() is *much* faster than jQuery('<div></div>')
-// http://stackoverflow.com/questions/268490/
-//
-// You don't need jQuery but then you need to struggle with browser
-// differences in innerText/textContent yourself
-function escapeAndNl2br(text) {
-	var htmls = [];
-	var lines = text.split(/\n/);
-	var tmpDiv = jQuery(document.createElement('div'));
-	for (var i = 0 ; i < lines.length ; i++) {
-		htmls.push(tmpDiv.text(lines[i]).html());
-	}
-	return htmls.join("<br>");
+var BitStore = createStore( (state, action) => {
+	
+	console.warn('REDUCER');
+	console.log(state,action);
+	
+	if (action.type == 'HYDRATE')
+		{
+			return { bits: action.bits }
+		}
+	
+	return {
+		bits: [
+			{text: 'abc', id: 1},
+			{text: 'def', id: 2}
+		]
+	};
+});
+
+
+const Bit = (props) => {
+	return (
+	<div className="bit">
+				<div className="bit__handle"></div>
+				<div className="bit__delete" title="Supprimer"></div>
+				<div className="bit__text" contentEditable>{props.text}</div>
+	</div>
+	)
 }
 
-// Throttles the rate at which we send edit updates to the server
-var editTimeouts = {};
-
-// Displays a bit
-function appendBit(bit,id,created_by_user)
-{
-	if (typeof focus == 'undefined') focus = false;
-
-	var $bit = $($('.template-bit').html()) // or children.clone
-		.css({top: bit.top, left: bit.left})
-		.find('.bit__text')
-			.html(escapeAndNl2br(bit.text || ''))
-		.end()
-		.appendTo('#canvas')
-		.draggable({
-			handle: ".bit__handle",
-			containment: "parent",
-			start: function(e) {
-				$(this).addClass('being-dragged');
-			},
-			stop: function(e,ui) { // ou stop comme on veut // @todo foutre ça ailleurs
-				$(this).removeClass('being-dragged');
-				// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
-				socket.emit('move',{id: $(this).data('id'), left: ui.position.left, top: ui.position.top});
-			}
-		});
-
-	if (created_by_user) {
-		$bit.find('.bit__text').focus();
-		$bit.attr('data-tempid',id) // rather than .data() so that we can search for an id using CSS selectors
-	}
-	else
-		$bit.attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
-
-
-	$bit.find('.bit__text').focusout(deleteIfEmpty);
+const Canvas = (props) => {
+	return (
+	<div id="canvas">
+		<h1 className="swarm-name">{props.roomDisplayName}</h1>
+		{BitStore.getState().bits.map( bit => 
+			<Bit key={bit.id} text={bit.text}/>
+		)}
+	</div>
+	);
 }
 
-// var ff = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+
+
+
+
+
+
+
 
 if (location.hostname == 'swarm.ovh')
 	var socket = io.connect('http://141.138.157.211:1336');
 else
 	var socket = io.connect('http://127.0.0.1:1336');
 
+
+// @todo gérer les pages avec component react
 socket.on('connect_error', function(e) {
 	$('.page').removeClass('active');
 	$('.page--internal-error').addClass('active');
 });
 
-socket.on('connect', function() {
-	var room_name = window.location.href.match(/\/[^/]+$/);
+socket.on('connect', function() { // FSM pour éviter les bugs? refresh quand re-connect?
+	
+	var room_name = window.location.href.match(/\/([^/]+)$/);
 	if (room_name == null) room_name = '';
-	else room_name = room_name[0].substr(1);
-	$('#canvas').prepend($('<h1></h1>').addClass('swarm-name').text(room_name.length == 0 ? 'swarm' : room_name));
+	else room_name = room_name[1];
+	
 	socket.emit('swarm',room_name);
+	
+	var room_display_name = room_name.length == 0 ? 'swarm' : room_name; // modif le store
+	
+	
+	const render = () => {
+		ReactDOM.render(
+		<Canvas roomDisplayName={room_display_name} />,
+		document.querySelector('.swarm__app')
+		)
+	};
+	
+	BitStore.subscribe(render);
+	render();
+	
 });
+
+
 
 socket.on('catchUp',function(bits) {
 	$('.page').removeClass('active');
-	$('.page--swarm').addClass('active');
-	$.each(bits,function(i,bit){ appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
+	$('.page--swarm').addClass('active'); // @todo utility function showPage('swarm');
+	
+	console.warn('CATCHUP, DISPATCH HYDRATE');
+	BitStore.dispatch({type: 'HYDRATE', bits: bits})
+	console.log(BitStore.getState());
+	
+	/*$.each(bits,function(i,bit){ appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
 
+	// tout ça dans elm react canvas
 	$('#canvas').on('mousedown',function(e){
-		if ($(e.target).is('.bit__delete'))
-		{
-			socket.emit('delete',$(e.target).parent().data('id'));
-			$(e.target).parent().remove();
-			return true;
-		}
-
 		if( e.target !== this )
 			return;
 
 		var parentOffset = $(this).offset();
 		var relX = e.pageX - parentOffset.left;
 		var relY = e.pageY - parentOffset.top - 5;
+		
+		// dans l'action "createBit"
 		var id = Math.floor(Math.random()*100000); // magic is happening
-		appendBit({left: relX, top: relY}, id, true);
+		store.push({left: relX, top: relY, temp_id: xx, get_id_promise: newPromise focus: true});
 
-		socket.emit('new',{id: id, top:relY, left:relX}); //todo wait before edit ?
+		socket.emit('new',{temp_id: id, top:relY, left:relX}); //todo wait before edit ?
 		return false;
 	});
 
-	$('#canvas').on('input','.bit__text',function(e){ // todo on input sur bit-text?
-			var $bit_message = $(e.target);
-			var $bit = $bit_message.closest('.bit')
-			var id = $bit.data('tempid') || $bit.data('id'); // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
-			if (typeof(editTimeouts[id]) !== 'undefined')
-				clearInterval(editTimeouts[id]);
-
-			var sendTextToServer = function() {
-				if (typeof($bit.data('id')) === 'undefined')
-				{
-					editTimeouts[id] = setTimeout(sendTextToServer,500);
-					return;
-				}
-				var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-				// var $el_with_linebreaks = $bit_message.clone();
-				// var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
-				var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
-				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
-				
-				socket.emit('edit',{id: $bit.data('id'), text: plaintext});
-				delete editTimeouts[id];
-			}
-			editTimeouts[id] = setTimeout(sendTextToServer,500);
-	});
+	
 	
 	socket.on('tempIdIsId',function(obj){
-	   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
+	   // don't do this: $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
+		modifity in store (stateless)
 	});
 	socket.on('new',function(bit){
-	   appendBit({left: bit.left, top: bit.top}, bit.id)
+	   // don't do this : appendBit({left: bit.left, top: bit.top}, bit.id)
+		store push
 	});
 	socket.on('move',function(bit){
 	   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
+		store move id
 	});
 	socket.on('delete',function(id){
 	   $('[data-id='+id+']').remove();
+		store remove
 	});
 	socket.on('edit',function(bit){
 	   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
-	});
+		store edit
+	});*/
 });
 // @todo encodage
-// remove all
-
+/*
 function deleteIfEmpty(bit) {
 	if ( $(this).text().length < 1 ) {
 		$(this).siblings('.bit__delete').click();
@@ -152,8 +144,14 @@ function deleteIfEmpty(bit) {
 }
 
 window.onbeforeunload = function() {
-	if (Object.keys(editTimeouts).length > 0)
+	if (Object.keys(editTimeouts).length > 0) // if store.hasNotEditedYet
 		return 'Please wait a short while so we can save your message.';
 	else
 		return null;
-}
+}*/
+
+
+/*
+Since JSX is JavaScript, identifiers such as class and for are discouraged as XML attribute names. Instead, React DOM components
+expect DOM property names like className and htmlFor, respectively.
+*/
