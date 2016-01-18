@@ -19,6 +19,9 @@ var store = createStore( (state, action) => {
 		case 'ADD_BIT':
 			return Object.assign({}, state, { bits: [...state.bits, action.bit] });
 			break;
+		case 'EDIT_BIT':
+			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id != action.id) ? bit : Object.assign({}, bit, {text: action.text})) });
+			break;
 		case 'DELETE_BIT':
 			return Object.assign({}, state, { bits: state.bits.filter(bit => (bit.id != action.id)) });
 			break;
@@ -46,16 +49,16 @@ class Bit extends Component {
 					// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
 					// @todo check if not tempId
 					console.log({id: that.props.id, left: ui.position.left, top: ui.position.top});
-					socket.emit('move',{id: that.props.id, left: ui.position.left, top: ui.position.top});
+					socket.emit('move',{id: that.props.id, left: ui.position.left, top: ui.position.top}); // @todo store
 				}
 			});
-  	}
-	
-	render() {
-		
-		console.log(this);
 		
 		this.editTimeout = null;
+  	}
+	
+	render() { // rerender on input because yolo
+		
+		// don't want to re-render on input
 		
 		var onMouseDown = function(e){
 			console.log(this.lol);
@@ -69,6 +72,16 @@ class Bit extends Component {
 		}
 		
 		var onInput = function(e) {
+			
+			/*var $bit_message = $(ReactDOM.findDOMNode(this)).find('.bit__text'); // this.refs.text
+			var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
+			var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
+			var plaintext = jQuery(document.createElement('div')).html(html_content).text();*/
+
+			var plaintext = e.target.value;
+			
+			store.dispatch({type: 'EDIT_BIT', id: this.props.id, text: plaintext});
+			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
 				if (this.props.id == null)
 				{
@@ -76,25 +89,28 @@ class Bit extends Component {
 					return;
 				}
 				
-				var $bit_message = $(ReactDOM.findDOMNode(this)).find('.bit__text'); // this.refs.text
-				var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-				var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
-				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
-				
+				console.log('emit');
 				socket.emit('edit',{id: this.props.id, text: plaintext});
 			}
+			
+			console.log('this.editTimeout avant', this.editTimeout)
 			
 			if (this.editTimeout !== null) // https://jsperf.com/null-check-cleartimeout-vs-cleartimeout-null
 				clearTimeout(this.editTimeout);
 			
-			this.editTimeout = setTimeout(sendTextToServer.bind(this),500);
+			console.log('this.editTimeout après', this.editTimeout)
+			console.log(this);
+			this.editTimeout = setTimeout(sendTextToServer.bind(this),3000);
 		}
 		
+		// <div className="bit__text" contentEditable onInput={onInput.bind(this)}>{this.props.text}</div>
+		
+		// todo nl2br sur this.props.text (ou css pre)
 		return (
 		<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
 					<div className="bit__handle"></div>
 					<div className="bit__delete" title="Supprimer" onClick={onClickDelete.bind(this)}></div>
-					<div className="bit__text" contentEditable onInput={onInput.bind(this)}>{this.props.text}</div>
+					<textarea className="bit__text" value={this.props.text} onChange={onInput.bind(this)} />
 		</div>
 		)
 	}
@@ -186,6 +202,17 @@ socket.on('catchUp',function(bits) {
 	
 	store.dispatch({type: 'HYDRATE', bits: bits})
 	console.log(store.getState());
+	
+	socket.on('delete',function(id){
+	   store.dispatch({type: 'DELETE_BIT', id: id});
+	});
+	
+	
+	
+	socket.on('edit',function(bit){
+	   store.dispatch({type: 'EDIT_BIT', id: bit.id, text: bit.text});
+	});
+	
 	/*
 
 	
@@ -204,14 +231,7 @@ socket.on('catchUp',function(bits) {
 	   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
 		store move id
 	});
-	socket.on('delete',function(id){
-	   $('[data-id='+id+']').remove();
-		store remove
-	});
-	socket.on('edit',function(bit){
-	   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
-		store edit
-	});*/
+	*/
 });
 // @todo encodage
 /*
