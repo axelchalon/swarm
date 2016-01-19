@@ -123,9 +123,12 @@ class Bit extends Component {
 
 			var plaintext = e.target.value;
 			
-			store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
 			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
+				
+				console.log('DISPATCH. BOOM!')
+				store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
+				
 				if (this.props.id_server == null)
 				{
 					console.log('no id server yet');
@@ -155,7 +158,7 @@ class Bit extends Component {
 			<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
 						<div className="bit__handle"></div>
 						<div className="bit__delete" title="Supprimer" onClick={onClickDelete.bind(this)}></div>
-						<textarea className="bit__text" value={this.props.text} onChange={onInput.bind(this)} />
+						<textarea className="bit__text" defaultValue={this.props.text} onChange={onInput.bind(this)} />
 			</div>
 		)
 	}
