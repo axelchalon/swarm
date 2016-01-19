@@ -54,7 +54,26 @@ class Bit extends Component {
 			});
 		
 		this.editTimeout = null;
-  	}
+  		this.autoheight();
+	}
+	
+	componentDidUpdate() {
+		this.autoheight();
+	}
+	
+	autoheight () {
+		var $el = $(ReactDOM.findDOMNode(this)).find('.bit__text')
+		if (!$el.prop('scrollTop')) {
+			do {
+				var b = $el.prop('scrollHeight');
+				var h = $el.height();
+				$el.height(h - 5);
+			}
+			while (b && (b != $el.prop('scrollHeight')));
+		};
+		$el.height($el.prop('scrollHeight') + 20);
+	}
+	
 	
 	render() { // rerender on input because yolo
 		
@@ -69,9 +88,10 @@ class Bit extends Component {
 		var onClickDelete = function(e) {
 			socket.emit('delete',this.props.id);
 			store.dispatch({type: 'DELETE_BIT', id: this.props.id});
-		}
+		}		
 		
 		var onInput = function(e) {
+			
 			
 			/*var $bit_message = $(ReactDOM.findDOMNode(this)).find('.bit__text'); // this.refs.text
 			var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
@@ -100,18 +120,19 @@ class Bit extends Component {
 			
 			console.log('this.editTimeout après', this.editTimeout)
 			console.log(this);
-			this.editTimeout = setTimeout(sendTextToServer.bind(this),3000);
+			this.editTimeout = setTimeout(sendTextToServer.bind(this),500);
 		}
 		
 		// <div className="bit__text" contentEditable onInput={onInput.bind(this)}>{this.props.text}</div>
 		
+		// todo utiliser contenteditable à la place cf stackoverflow react contenteditable onchange
 		// todo nl2br sur this.props.text (ou css pre)
 		return (
-		<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
-					<div className="bit__handle"></div>
-					<div className="bit__delete" title="Supprimer" onClick={onClickDelete.bind(this)}></div>
-					<textarea className="bit__text" value={this.props.text} onChange={onInput.bind(this)} />
-		</div>
+			<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
+						<div className="bit__handle"></div>
+						<div className="bit__delete" title="Supprimer" onClick={onClickDelete.bind(this)}></div>
+						<textarea className="bit__text" value={this.props.text} onChange={onInput.bind(this)} />
+			</div>
 		)
 	}
 }
@@ -138,6 +159,22 @@ const Canvas = (props) => {
 		// socket.emit('new',{temp_id: id, top:relY, left:relX}); //todo wait before edit ?
 		return false;
 	};
+	
+	// to add:
+	// todo
+	
+	// either multiple keys ==> same component
+	
+	// probably this:
+	// OR key is client-side ==> bit.client_id ; bit.server_id (always use client_id (key) except for socket)
+	// but then, on edit => bit_id is client_id ? (client edit) or server_id ? (server edit)
+	// then, need separate actions... a bit of a pain in the neck. EDIT_SERVER, EDIT_CLIENT...
+	
+	// "react key waiting for server"
+	// "react key from server"
+	// "react assign key later"
+	
+	// shouldComponentUpdate <-- (conenteditable, nochange/nochangerequest)
 	
 	return (
 	<div id="canvas" onMouseDown={onMouseDown}>
@@ -227,7 +264,7 @@ socket.on('catchUp',function(bits) {
 	   // don't do this : appendBit({left: bit.left, top: bit.top}, bit.id)
 		store push
 	});
-	socket.on('move',function(bit){
+	socket.on('move',function(bit){ todo store top/left in store?
 	   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
 		store move id
 	});
