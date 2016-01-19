@@ -3,6 +3,10 @@
 var createStore = Redux.createStore;
 var Component = React.Component;
 
+function uniqid() {
+	return Math.floor(Math.random()*100000);	
+}
+
 var store = createStore( (state, action) => {
 	
 	console.warn('REDUCER');
@@ -11,19 +15,31 @@ var store = createStore( (state, action) => {
 	switch (action.type)
 	{
 		case 'HYDRATE':
-			return Object.assign({}, state, { bits: action.bits });
+			return Object.assign({}, state, { bits: action.bits.map(bit => Object.assign({}, bit, {id_client: uniqid()})) });
 			break;
 		case 'CHANGE_SWARM':
 			return Object.assign({}, state, { swarmName: action.swarmName });
 			break;
-		case 'ADD_BIT':
+		case 'ADD_BIT_CLIENT':
 			return Object.assign({}, state, { bits: [...state.bits, action.bit] });
 			break;
-		case 'EDIT_BIT':
-			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id != action.id) ? bit : Object.assign({}, bit, {text: action.text})) });
+		case 'ADD_BIT_SERVER':
+			return Object.assign({}, state, { bits: [...state.bits, Object.assign({}, action.bit, {id_client: uniqid()} )] });
 			break;
-		case 'DELETE_BIT':
-			return Object.assign({}, state, { bits: state.bits.filter(bit => (bit.id != action.id)) });
+		case 'EDIT_BIT_CLIENT':
+			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id_client != action.id_client) ? bit : Object.assign({}, bit, {text: action.text})) });
+			break;
+		case 'EDIT_BIT_SERVER':
+			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id_server != action.id_server) ? bit : Object.assign({}, bit, {text: action.text})) });
+			break;
+		case 'DELETE_BIT_CLIENT':
+			return Object.assign({}, state, { bits: state.bits.filter(bit => (bit.id_client != action.id_client)) });
+			break;
+		case 'DELETE_BIT_SERVER':
+			return Object.assign({}, state, { bits: state.bits.filter(bit => (bit.id_server != action.id_server)) });
+			break
+		case 'SET_BIT_ID_SERVER':
+			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id_client != action.id_client) ? bit : Object.assign({}, bit, {id_server: action.id_server})) });
 			break;
 		default:
 			return { bits: [], swarmName: null }
@@ -48,8 +64,8 @@ class Bit extends Component {
 					$(this).removeClass('being-dragged');
 					// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
 					// @todo check if not tempId
-					console.log({id: that.props.id, left: ui.position.left, top: ui.position.top});
-					socket.emit('move',{id: that.props.id, left: ui.position.left, top: ui.position.top}); // @todo store
+					console.log(that.props);
+					socket.emit('move',{id_server: that.props.id_server, left: ui.position.left, top: ui.position.top}); // @todo store
 				}
 			});
 		
@@ -80,14 +96,21 @@ class Bit extends Component {
 		// don't want to re-render on input
 		
 		var onMouseDown = function(e){
-			console.log(this.lol);
 			e.stopPropagation(); // for canvas onMouseDown
 			return false;
 		};
 		
 		var onClickDelete = function(e) {
-			socket.emit('delete',this.props.id);
-			store.dispatch({type: 'DELETE_BIT', id: this.props.id});
+			
+			store.dispatch({type: 'DELETE_BIT_CLIENT', id_client: this.props.id_client});
+			
+			if (this.props.id_server == null)
+			{
+				console.log('No server id, passing.')
+				return;
+			}
+			
+			socket.emit('delete',{id_server: this.props.id_server});
 		}		
 		
 		var onInput = function(e) {
@@ -100,17 +123,18 @@ class Bit extends Component {
 
 			var plaintext = e.target.value;
 			
-			store.dispatch({type: 'EDIT_BIT', id: this.props.id, text: plaintext});
+			store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
 			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
-				if (this.props.id == null)
+				if (this.props.id_server == null)
 				{
+					console.log('no id server yet');
 					this.editTimeout = setTimeout(sendTextToServer,500); // @todo accumule!
 					return;
 				}
 				
 				console.log('emit');
-				socket.emit('edit',{id: this.props.id, text: plaintext});
+				socket.emit('edit',{id_server: this.props.id_server, text: plaintext});
 			}
 			
 			console.log('this.editTimeout avant', this.editTimeout)
@@ -153,10 +177,10 @@ const Canvas = (props) => {
 		var relY = e.pageY - parentOffset.top - 5;
 		
 		// dans l'action "createBit"
-		var temp_id = Math.floor(Math.random()*100000); // magic is happening
-		store.dispatch({type: 'ADD_BIT', bit: { text: '', left: relX, top: relY, id: null, temp_id: temp_id, get_id_promise: 'toto'} });
-
-		// socket.emit('new',{temp_id: id, top:relY, left:relX}); //todo wait before edit ?
+		var id_client = uniqid()
+		store.dispatch({type: 'ADD_BIT_CLIENT', bit: { text: '', id_client: id_client, left: relX, top: relY, id_server: null} });
+		console.warn(store.getState());
+		socket.emit('new',{id_client: id_client, top:relY, left:relX}); //todo wait before edit ?
 		return false;
 	};
 	
@@ -180,7 +204,7 @@ const Canvas = (props) => {
 	<div id="canvas" onMouseDown={onMouseDown}>
 		<h1 className="swarm-name">{roomDisplayName}</h1>
 		{store.getState().bits.map( bit => 
-			<Bit key={bit.id} id={bit.id} text={bit.text} left={bit.left} top={bit.top}/>
+			<Bit key={bit.id_client} id_client={bit.id_client} id_server={bit.id_server} text={bit.text} left={bit.left} top={bit.top}/>
 		)}
 	</div>
 	);
@@ -234,41 +258,39 @@ socket.on('connect', function() { // FSM pour éviter les bugs? refresh quand re
 
 
 socket.on('catchUp',function(bits) {
+	
+	console.log('caught up');
 	$('.page').removeClass('active');
 	$('.page--swarm').addClass('active'); // @todo utility function showPage('swarm');
 	
 	store.dispatch({type: 'HYDRATE', bits: bits})
 	console.log(store.getState());
 	
-	socket.on('delete',function(id){
-	   store.dispatch({type: 'DELETE_BIT', id: id});
+	socket.on('delete',function(obj){
+	   store.dispatch({type: 'DELETE_BIT_SERVER', id_server: obj.id_server});
 	});
 	
 	
 	
 	socket.on('edit',function(bit){
-	   store.dispatch({type: 'EDIT_BIT', id: bit.id, text: bit.text});
+	   store.dispatch({type: 'EDIT_BIT_SERVER', id_server: bit.id_server, text: bit.text});
 	});
 	
-	/*
-
-	
-
-	
-	
-	socket.on('tempIdIsId',function(obj){
-	   // don't do this: $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
-		modifity in store (stateless)
-	});
 	socket.on('new',function(bit){
-	   // don't do this : appendBit({left: bit.left, top: bit.top}, bit.id)
-		store push
+	   store.dispatch({type: 'ADD_BIT_SERVER', id_server: bit.id_server, text: bit.text, left: bit.left, top: bit.top});
 	});
-	socket.on('move',function(bit){ todo store top/left in store?
-	   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
-		store move id
+	
+	socket.on('tempIdIsId',function(bit){
+	   store.dispatch({type: 'SET_BIT_ID_SERVER', id_client: bit.id_client, id_server: bit.id_server});
 	});
-	*/
+	
+	socket.on('move',function(bit){ // todo store top/left in store?
+		// @todo
+	
+	   // $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
+	   // store.dispatch({type: 'MOVE_BIT_SERVER', id_server: bit.id_server, text: bit.text});
+	});
+	
 });
 // @todo encodage
 /*
