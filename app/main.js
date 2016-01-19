@@ -12,6 +12,7 @@ var store = createStore( (state, action) => {
 	console.warn('REDUCER');
 	console.log(state,action);
 	
+	// @todo use {bit: } as param always?
 	switch (action.type)
 	{
 		case 'HYDRATE':
@@ -21,16 +22,23 @@ var store = createStore( (state, action) => {
 			return Object.assign({}, state, { swarmName: action.swarmName });
 			break;
 		case 'ADD_BIT_CLIENT':
-			return Object.assign({}, state, { bits: [...state.bits, action.bit] });
+			return Object.assign({}, state, { bits: [...state.bits, action.bit] }); // @todo action.bit !?
 			break;
 		case 'ADD_BIT_SERVER':
-			return Object.assign({}, state, { bits: [...state.bits, Object.assign({}, action.bit, {id_client: uniqid()} )] });
+			console.log(action.bit);
+			return Object.assign({}, state, { bits: [...state.bits, Object.assign({}, action.bit, {id_client: uniqid()} )] }); // @todo action.bit !?
 			break;
 		case 'EDIT_BIT_CLIENT':
 			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id_client != action.id_client) ? bit : Object.assign({}, bit, {text: action.text})) });
 			break;
 		case 'EDIT_BIT_SERVER':
 			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id_server != action.id_server) ? bit : Object.assign({}, bit, {text: action.text})) });
+			break;
+		case 'MOVE_BIT_CLIENT':
+			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id_client != action.id_client) ? bit : Object.assign({}, bit, {top: action.top, left: action.left})) });
+			break;
+		case 'MOVE_BIT_SERVER':
+			return Object.assign({}, state, { bits: state.bits.map(bit => (bit.id_server != action.id_server) ? bit : Object.assign({}, bit, {top: action.top, left: action.left})) });
 			break;
 		case 'DELETE_BIT_CLIENT':
 			return Object.assign({}, state, { bits: state.bits.filter(bit => (bit.id_client != action.id_client)) });
@@ -65,6 +73,7 @@ class Bit extends Component {
 					// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
 					// @todo check if not tempId
 					console.log(that.props);
+					store.dispatch({type: 'MOVE_BIT_CLIENT', id_client: that.props.id_client, left: ui.position.left, top: ui.position.top});
 					socket.emit('move',{id_server: that.props.id_server, left: ui.position.left, top: ui.position.top}); // @todo store
 				}
 			});
@@ -74,7 +83,9 @@ class Bit extends Component {
 	}
 	
 	componentDidUpdate() {
+		console.log('did update ! RIRAINDEUUUR');
 		this.autoheight();
+		$(ReactDOM.findDOMNode(this)).find('.bit__text').val(this.props.text); // in case the server updated the store @todo
 	}
 	
 	autoheight () {
@@ -125,6 +136,8 @@ class Bit extends Component {
 			
 			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
+				
+				// @todo send only if not empty (on creation)
 				
 				console.log('DISPATCH. BOOM!')
 				store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
@@ -262,12 +275,10 @@ socket.on('connect', function() { // FSM pour éviter les bugs? refresh quand re
 
 socket.on('catchUp',function(bits) {
 	
-	console.log('caught up');
 	$('.page').removeClass('active');
 	$('.page--swarm').addClass('active'); // @todo utility function showPage('swarm');
 	
 	store.dispatch({type: 'HYDRATE', bits: bits})
-	console.log(store.getState());
 	
 	socket.on('delete',function(obj){
 	   store.dispatch({type: 'DELETE_BIT_SERVER', id_server: obj.id_server});
@@ -276,11 +287,12 @@ socket.on('catchUp',function(bits) {
 	
 	
 	socket.on('edit',function(bit){
+		console.log({type: 'EDIT_BIT_SERVER', id_server: bit.id_server, text: bit.text});
 	   store.dispatch({type: 'EDIT_BIT_SERVER', id_server: bit.id_server, text: bit.text});
 	});
 	
 	socket.on('new',function(bit){
-	   store.dispatch({type: 'ADD_BIT_SERVER', id_server: bit.id_server, text: bit.text, left: bit.left, top: bit.top});
+	   store.dispatch({type: 'ADD_BIT_SERVER', bit: {id_server: bit.id_server, text: bit.text, left: bit.left, top: bit.top}});
 	});
 	
 	socket.on('tempIdIsId',function(bit){
@@ -288,10 +300,7 @@ socket.on('catchUp',function(bits) {
 	});
 	
 	socket.on('move',function(bit){ // todo store top/left in store?
-		// @todo
-	
-	   // $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
-	   // store.dispatch({type: 'MOVE_BIT_SERVER', id_server: bit.id_server, text: bit.text});
+		store.dispatch({type: 'MOVE_BIT_SERVER', id_server: bit.id_server, top: bit.top, left: bit.left});
 	});
 	
 });
@@ -309,9 +318,3 @@ window.onbeforeunload = function() {
 	else
 		return null;
 }*/
-
-
-/*
-Since JSX is JavaScript, identifiers such as class and for are discouraged as XML attribute names. Instead, React DOM components
-expect DOM property names like className and htmlFor, respectively.
-*/
