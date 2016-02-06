@@ -79,15 +79,15 @@ class Bit extends Component {
 			});
 		
 		this.editTimeout = null;
-  		this.autoheight();
+//  		this.autoheight();
 	}
 	
-	componentDidUpdate() {
+/*	componentDidUpdate() {
 		console.log('did update ! RIRAINDEUUUR');
-		this.autoheight();
+//		this.autoheight();
 		$(ReactDOM.findDOMNode(this)).find('.bit__text').val(this.props.text); // in case the server updated the store @todo
-	}
-	
+	}*/
+	/*
 	autoheight () {
 		var $el = $(ReactDOM.findDOMNode(this)).find('.bit__text')
 		if (!$el.prop('scrollTop')) {
@@ -99,12 +99,30 @@ class Bit extends Component {
 			while (b && (b != $el.prop('scrollHeight')));
 		};
 		$el.height($el.prop('scrollHeight') + 20);
+	}*/
+	
+	updateContentEditableText() {
+		function escapeHTML(str) {
+			var div = document.createElement('div');
+			div.appendChild(document.createTextNode(str));
+			return div.innerHTML;
+		};
+		this.refs.contentEditable.innerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');
 	}
 	
+	componentDidUpdate() {
+		this.updateContentEditableText();	
+	}
+	
+	componentDidMount() {
+		this.updateContentEditableText();	
+	}
 	
 	render() { // rerender on input because yolo
 		
 		// don't want to re-render on input
+		
+		console.log('render');
 		
 		var onMouseDown = function(e){
 			e.stopPropagation(); // for canvas onMouseDown
@@ -126,20 +144,15 @@ class Bit extends Component {
 		
 		var onInput = function(e) {
 			
-			
-			/*var $bit_message = $(ReactDOM.findDOMNode(this)).find('.bit__text'); // this.refs.text
-			var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-			var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
-			var plaintext = jQuery(document.createElement('div')).html(html_content).text();*/
-
-			var plaintext = e.target.value;
-			
-			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
 				
 				// @todo send only if not empty (on creation)
+				var tempDiv = document.createElement('div');
+				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/<br\/?>/g, '\n');
+				var plaintext = tempDiv.textContent;
 				
-				console.log('DISPATCH. BOOM!')
+				console.log('plaintext',plaintext)
+				
 				store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
 				
 				if (this.props.id_server == null)
@@ -164,16 +177,30 @@ class Bit extends Component {
 		}
 		
 		// <div className="bit__text" contentEditable onInput={onInput.bind(this)}>{this.props.text}</div>
+		// <textarea className="bit__text" defaultValue={this.props.text} onChange={onInput.bind(this)} />
 		
-		// todo utiliser contenteditable à la place cf stackoverflow react contenteditable onchange
 		// todo nl2br sur this.props.text (ou css pre)
 		return (
 			<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
 						<div className="bit__handle"></div>
 						<div className="bit__delete" title="Supprimer" onClick={onClickDelete.bind(this)}></div>
-						<textarea className="bit__text" defaultValue={this.props.text} onChange={onInput.bind(this)} />
+						<div className="bit__text" contentEditable onInput={onInput.bind(this)} ref="contentEditable"></div>
 			</div>
 		)
+		
+		// soit constamment mettre à jour le state sans rerender (moyen perfs, pas d'intérêt)
+		// soit mettre à jour le state à l'editTimeout et rerender <--
+		// si rerender hors-react, problème de curseur après edittimeout
+		// https://github.com/lovasoa/react-contenteditable ?
+		
+		// readinglist : https://github.com/facebook/react/issues/2533
+		
+		// @todo quand on edit le même texte à deux ça pète
+		
+		// textarea auto height https://jsfiddle.net/hmelenok/WM6Gq/ work well https://stackoverflow.com/questions/454202/creating-a-textarea-with-auto-resize/5346855#5346855 also
+		// convert to plaintext, ON PASTE ONLY: https://stackoverflow.com/questions/20365465/extract-text-from-html-while-preserving-block-level-element-newlines/20384452#20384452
+		// convert to plaintext : https://stackoverflow.com/questions/24408028/html5-contenteditable-div-accept-only-plaintext
+		// plaintext-only is a no-no
 	}
 }
 
