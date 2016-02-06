@@ -77,7 +77,7 @@ class Bit extends Component {
 		
 		this.editTimeout = null;
 		
-		this.updateContentEditableText();
+		this.updateContentEditableText();  
 	}
 	
 	updateContentEditableText() {
@@ -87,16 +87,18 @@ class Bit extends Component {
 			return div.innerHTML;
 		};
 		
-		var newInnerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');
+		var newInnerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');/*
 		if (this.refs.contentEditable.innerHTML != newInnerHTML) // @todo react should do this
-			this.refs.contentEditable.innerHTML = newInnerHTML
+			this.refs.contentEditable.innerHTML = newInnerHTML*/
 	}
 	
 	componentDidUpdate() {
 		this.updateContentEditableText();	
 	}
 	
-	render() { // don't want to re-render on input ? but input should be consistent with the visuals! otherwise the other ppl won't see the same thing.
+	render() { // don't want to re-render on input ? but input should be consistent with the visuals! otherwise the other ppl won't see the same thing. @todo !!!
+		
+		// pour deux markups avec le même rendu, ça fait faire foirer le curseur...
 		
 		console.log('render bit');
 		
@@ -116,11 +118,15 @@ class Bit extends Component {
 			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
 				
-				// @todo send only if not empty (on creation)
-				var tempDiv = document.createElement('div');
-				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/<br\/?>/g, '\n');
-				var plaintext = tempDiv.textContent; // @todo contenteditable is not predictable. newline creates div !?
+				console.log(this.refs.contentEditable.innerHTML);
 				
+				// @todo send only if not empty (on creation)
+				/*var tempDiv = document.createElement('div');
+				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/<div><br>/g, '<div>').replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // @todo ???
+				var plaintext = tempDiv.textContent; // @todo contenteditable is not predictable. newline creates div !?
+				*/
+				
+				var plaintext = this.refs.contentEditable.textContent; // @todo contenteditable is not predictable. newline creates div !?
 				console.log('plaintext',plaintext)
 				
 				store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
@@ -279,6 +285,81 @@ socket.on('catchUp',function(bits) {
 	});
 	
 });
+
+	
+/*$('body').on('keydown',' div[contenteditable]', function(e) {
+    // trap the return key being pressed
+    if (e.keyCode === 13) {
+	  console.log('trap'); // @todo ignore this is execcommand inserthtml doesn't exist
+      // insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
+      document.execCommand('insertHTML', false, '<br>');
+      // prevent the default behaviour of return key pressed
+      return false;
+    }
+});*/
+
+$('body').on('keypress','div[contenteditable]', function(event) {
+
+    if (event.which != 13)
+        return true;
+
+	console.log('new trap');
+    var docFragment = document.createDocumentFragment();
+
+    //add a new line
+    var newEle = document.createTextNode('\n');
+    docFragment.appendChild(newEle);
+
+    //add the br, or p, or something else
+    newEle = document.createElement('br');
+    docFragment.appendChild(newEle);
+
+    //make the br replace selection
+    var range = window.getSelection().getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(docFragment);
+
+    //create a new range
+    range = document.createRange();
+    range.setStartAfter(newEle);
+    range.collapse(true);
+
+    //make the cursor there
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    return false;
+});
+
+function escapeHTML(str) {
+	var div = document.createElement('div');
+	div.appendChild(document.createTextNode(str));
+	return div.innerHTML;
+};
+
+function strip(html) {
+   var tmp = document.createElement("DIV");
+   tmp.innerHTML = html;
+   return escapeHtml(tmp.textContent||tmp.innerText);
+}
+  
+$('body').on('paste', 'div[contenteditable]', function(e) {
+	var $field = $(e.currentTarget);
+	if (e.type==='paste') {
+	console.log('paste');
+		setTimeout(function() {
+			
+		var newInnerHTML = $field.get(0).innerHTML.replace(/<li|<h1|<h2|<h3|<h4|<h5|<h6|<div|<p/g,'<br><div').replace(/<\/li>|<\/h1>|<\/h2>|<\/h3>|<\/h4>|<\/h5>|<\/h6>|<\/div>|<\/p>/g,'</div>').replace(/<br>/g,'\n'); // convert block elements and br to \n
+		console.log(newInnerHTML);
+		var stripped_tags = $('<div></div>').html(newInnerHTML).text(); // strip tags
+		var stripped_tags_with_linebreaks = stripped_tags.replace(/\n/g,'<br>'); // conert \n back to <br>
+		$field.html(stripped_tags_with_linebreaks); /*
+			$field.html($field.text()); // @todo preserve br's ; but it's an edge case... */
+		},0);
+	}
+});
+
 // @todo encodage
 /*
 function deleteIfEmpty(bit) {
