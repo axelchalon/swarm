@@ -8,8 +8,7 @@ function uniqid() {
 }
 
 var store = createStore( (state, action) => {
-	
-	console.warn('REDUCER');
+	console.warn('REDUCER'); // @todo redux logger?
 	console.log(state,action);
 	
 	// @todo use {bit: } as param always?
@@ -52,8 +51,6 @@ var store = createStore( (state, action) => {
 		default:
 			return { bits: [], swarmName: null }
 	}
-
-	
 });
 
 
@@ -62,6 +59,7 @@ class Bit extends Component {
 	componentDidMount() {
 		var $el = $(ReactDOM.findDOMNode(this));
 		var that = this;
+		console.log($el);
 		$el.draggable({
 				handle: ".bit__handle",
 				containment: "parent",
@@ -71,14 +69,15 @@ class Bit extends Component {
 				stop: function(e,ui) { // ou stop comme on veut // @todo foutre Ã§a ailleurs
 					$(this).removeClass('being-dragged');
 					// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
-					// @todo check if not tempId
-					console.log(that.props);
 					store.dispatch({type: 'MOVE_BIT_CLIENT', id_client: that.props.id_client, left: ui.position.left, top: ui.position.top});
+					// @todo check if not tempId
 					socket.emit('move',{id_server: that.props.id_server, left: ui.position.left, top: ui.position.top}); // @todo store
 				}
 			});
 		
 		this.editTimeout = null;
+		
+		this.updateContentEditableText();
 	}
 	
 	updateContentEditableText() {
@@ -97,15 +96,9 @@ class Bit extends Component {
 		this.updateContentEditableText();	
 	}
 	
-	componentDidMount() {
-		this.updateContentEditableText();	
-	}
-	
-	render() { // rerender on input because yolo
+	render() { // don't want to re-render on input ? but input should be consistent with the visuals! otherwise the other ppl won't see the same thing.
 		
-		// don't want to re-render on input
-		
-		console.log('render');
+		console.log('render bit');
 		
 		var onMouseDown = function(e){
 			e.stopPropagation(); // for canvas onMouseDown
@@ -113,21 +106,10 @@ class Bit extends Component {
 		};
 		
 		var onClickDelete = function(e) {
-			
 			store.dispatch({type: 'DELETE_BIT_CLIENT', id_client: this.props.id_client});
 			
-			if (this.props.id_server == null)
-			{
-				console.log('No server id, passing.')
-				return;
-			}
-			
-			socket.emit('delete',{id_server: this.props.id_server});
-			
-			/*
-			<=>
 			if (this.props.id_server != null)
-				socket.emit('delete',{id_server: this.props.id_server});*/
+				socket.emit('delete',{id_server: this.props.id_server});
 		}		
 		
 		var onInput = function(e) {
@@ -137,7 +119,7 @@ class Bit extends Component {
 				// @todo send only if not empty (on creation)
 				var tempDiv = document.createElement('div');
 				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/<br\/?>/g, '\n');
-				var plaintext = tempDiv.textContent;
+				var plaintext = tempDiv.textContent; // @todo contenteditable is not predictable. newline creates div !?
 				
 				console.log('plaintext',plaintext)
 				
