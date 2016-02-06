@@ -87,9 +87,13 @@ class Bit extends Component {
 			return div.innerHTML;
 		};
 		
-		var newInnerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');/*
+		var newInnerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');
 		if (this.refs.contentEditable.innerHTML != newInnerHTML) // @todo react should do this
-			this.refs.contentEditable.innerHTML = newInnerHTML*/
+		{
+			console.log('update::isdifferent::previous',this.refs.contentEditable.innerHTML)
+			console.log('update::isdifferent::new:from:store',newInnerHTML)
+			this.refs.contentEditable.innerHTML = newInnerHTML
+		}
 	}
 	
 	componentDidUpdate() {
@@ -118,7 +122,7 @@ class Bit extends Component {
 			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
 				
-				console.log(this.refs.contentEditable.innerHTML);
+				console.log('sendtextoserver::innerhtml',this.refs.contentEditable.innerHTML);
 				
 				// @todo send only if not empty (on creation)
 				/*var tempDiv = document.createElement('div');
@@ -126,8 +130,14 @@ class Bit extends Component {
 				var plaintext = tempDiv.textContent; // @todo contenteditable is not predictable. newline creates div !?
 				*/
 				
-				var plaintext = this.refs.contentEditable.textContent; // @todo contenteditable is not predictable. newline creates div !?
-				console.log('plaintext',plaintext)
+				// var plaintext = this.refs.contentEditable.innerHTML.replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // @todo ???
+				// var plaintext = this.refs.contentEditable.textContent; // @todo contenteditable is not predictable. newline creates div !?
+				var tempDiv = document.createElement('div');
+				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/\n/g, '').replace(/<div><br>/g, '<div>').replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // just in case. normally we don't have any <div> at this point
+				var plaintext = tempDiv.textContent;
+				// @@@
+				
+				console.log('sendtextoserver::plaintext',plaintext)
 				
 				store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
 				
@@ -298,6 +308,8 @@ socket.on('catchUp',function(bits) {
     }
 });*/
 
+// or : white-space pre; and enter inserts a \n
+
 $('body').on('keypress','div[contenteditable]', function(event) {
 
     if (event.which != 13)
@@ -307,11 +319,11 @@ $('body').on('keypress','div[contenteditable]', function(event) {
     var docFragment = document.createDocumentFragment();
 
     //add a new line
-    var newEle = document.createTextNode('\n');
-    docFragment.appendChild(newEle);
+    /*var newEle = document.createTextNode('\n');
+    docFragment.appendChild(newEle);*/
 
     //add the br, or p, or something else
-    newEle = document.createElement('br');
+    var newEle = document.createElement('br');
     docFragment.appendChild(newEle);
 
     //make the br replace selection
@@ -350,15 +362,20 @@ $('body').on('paste', 'div[contenteditable]', function(e) {
 	console.log('paste');
 		setTimeout(function() {
 			
+		console.log('original', $field.get(0).innerHTML);
 		var newInnerHTML = $field.get(0).innerHTML.replace(/<li|<h1|<h2|<h3|<h4|<h5|<h6|<div|<p/g,'<br><div').replace(/<\/li>|<\/h1>|<\/h2>|<\/h3>|<\/h4>|<\/h5>|<\/h6>|<\/div>|<\/p>/g,'</div>').replace(/<br>/g,'\n'); // convert block elements and br to \n
-		console.log(newInnerHTML);
-		var stripped_tags = $('<div></div>').html(newInnerHTML).text(); // strip tags
+		console.log('br etc to n', newInnerHTML);
+		var stripped_tags = newInnerHTML.replace(/(<([^>]+)>)/ig,''); // strip tags
+		console.log('html: stripped tags', stripped_tags);
 		var stripped_tags_with_linebreaks = stripped_tags.replace(/\n/g,'<br>'); // conert \n back to <br>
+		console.log('html: stripped tags with br', stripped_tags_with_linebreaks);
 		$field.html(stripped_tags_with_linebreaks); /*
 			$field.html($field.text()); // @todo preserve br's ; but it's an edge case... */
 		},0);
 	}
 });
+
+// @todo plaintext-only only br polyfill sortir ça
 
 // @todo encodage
 /*
