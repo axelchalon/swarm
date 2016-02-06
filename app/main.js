@@ -87,7 +87,7 @@ class Bit extends Component {
 			return div.innerHTML;
 		};
 		
-		var newInnerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');
+		var newInnerHTML = escapeHTML(this.props.text); // .replace(/\n/g,'<br>');
 		if (this.refs.contentEditable.innerHTML != newInnerHTML) // @todo react should do this
 		{
 			console.log('update::isdifferent::previous',this.refs.contentEditable.innerHTML)
@@ -132,10 +132,12 @@ class Bit extends Component {
 				
 				// var plaintext = this.refs.contentEditable.innerHTML.replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // @todo ???
 				// var plaintext = this.refs.contentEditable.textContent; // @todo contenteditable is not predictable. newline creates div !?
-				var tempDiv = document.createElement('div');
+				/*var tempDiv = document.createElement('div');
 				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/\n/g, '').replace(/<div><br>/g, '<div>').replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // just in case. normally we don't have any <div> at this point
-				var plaintext = tempDiv.textContent;
+				var plaintext = tempDiv.textContent; */
 				// @@@
+				
+				var plaintext = this.refs.contentEditable.textContent;
 				
 				console.log('sendtextoserver::plaintext',plaintext)
 				
@@ -310,6 +312,59 @@ socket.on('catchUp',function(bits) {
 
 // or : white-space pre; and enter inserts a \n
 
+function getSelectionTextInfo(el) {
+    var atStart = false, atEnd = false;
+    var selRange, testRange;
+    if (window.getSelection) {
+        var sel = window.getSelection();
+        if (sel.rangeCount) {
+            selRange = sel.getRangeAt(0);
+            testRange = selRange.cloneRange();
+
+            testRange.selectNodeContents(el);
+            testRange.setEnd(selRange.startContainer, selRange.startOffset);
+            atStart = (testRange.toString() == "");
+
+            testRange.selectNodeContents(el);
+            testRange.setStart(selRange.endContainer, selRange.endOffset);
+            atEnd = (testRange.toString() == "");
+        }
+    } else if (document.selection && document.selection.type != "Control") {
+        selRange = document.selection.createRange();
+        testRange = selRange.duplicate();
+        
+        testRange.moveToElementText(el);
+        testRange.setEndPoint("EndToStart", selRange);
+        atStart = (testRange.text == "");
+
+        testRange.moveToElementText(el);
+        testRange.setEndPoint("StartToEnd", selRange);
+        atEnd = (testRange.text == "");
+    }
+
+    return { atStart: atStart, atEnd: atEnd };
+}
+
+function getCharacterPrecedingCaret(containerEl) {
+    var precedingChar = "", sel, range, precedingRange;
+    if (window.getSelection) {
+        sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+            range = sel.getRangeAt(0).cloneRange();
+            range.collapse(true);
+            range.setStart(containerEl, 0);
+            precedingChar = range.toString().slice(-1);
+        }
+    } else if ( (sel = document.selection) && sel.type != "Control") {
+        range = sel.createRange();
+        precedingRange = range.duplicate();
+        precedingRange.moveToElementText(containerEl);
+        precedingRange.setEndPoint("EndToStart", range);
+        precedingChar = precedingRange.text.slice(-1);
+    }
+    return precedingChar;
+}
+
 $('body').on('keypress','div[contenteditable]', function(event) {
 
     if (event.which != 13)
@@ -319,15 +374,23 @@ $('body').on('keypress','div[contenteditable]', function(event) {
     var docFragment = document.createDocumentFragment();
 
     //add a new line
-    /*var newEle = document.createTextNode('\n');
-    docFragment.appendChild(newEle);*/
+    var newEle = document.createTextNode('\n');
+    docFragment.appendChild(newEle);
+	
+	if (getSelectionTextInfo(event.currentTarget).atEnd && getCharacterPrecedingCaret(event.currentTarget) != '\n') // need to add two \n if cursor is at the end of the text only if not in newline!
+	{
+		console.log('add2');
+		newEle = document.createTextNode('\n');
+    	docFragment.appendChild(newEle);
+	}
 
     //add the br, or p, or something else
-    var newEle = document.createElement('br');
-    docFragment.appendChild(newEle);
+    /*var newEle = document.createElement('br');
+    docFragment.appendChild(newEle);*/
 
     //make the br replace selection
     var range = window.getSelection().getRangeAt(0);
+	console.log(range);
     range.deleteContents();
     range.insertNode(docFragment);
 
@@ -366,10 +429,10 @@ $('body').on('paste', 'div[contenteditable]', function(e) {
 		var newInnerHTML = $field.get(0).innerHTML.replace(/<li|<h1|<h2|<h3|<h4|<h5|<h6|<div|<p/g,'<br><div').replace(/<\/li>|<\/h1>|<\/h2>|<\/h3>|<\/h4>|<\/h5>|<\/h6>|<\/div>|<\/p>/g,'</div>').replace(/<br>/g,'\n'); // convert block elements and br to \n
 		console.log('br etc to n', newInnerHTML);
 		var stripped_tags = newInnerHTML.replace(/(<([^>]+)>)/ig,''); // strip tags
-		console.log('html: stripped tags', stripped_tags);
+		console.log('html: stripped tags', stripped_tags);/*
 		var stripped_tags_with_linebreaks = stripped_tags.replace(/\n/g,'<br>'); // conert \n back to <br>
-		console.log('html: stripped tags with br', stripped_tags_with_linebreaks);
-		$field.html(stripped_tags_with_linebreaks); /*
+		console.log('html: stripped tags with br', stripped_tags_with_linebreaks);*/
+		$field.html(stripped_tags); /*
 			$field.html($field.text()); // @todo preserve br's ; but it's an edge case... */
 		},0);
 	}
