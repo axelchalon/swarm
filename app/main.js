@@ -71,8 +71,52 @@ socket.on('connect', function() {
 	var room_name = window.location.href.match(/\/[^/]+$/);
 	if (room_name == null) room_name = '';
 	else room_name = room_name[0].substr(1);
+	
+	function getKeyByValue( value, haystack ) {
+		for( var prop in haystack ) {
+			if( haystack.hasOwnProperty( prop ) ) {
+				 if( haystack[ prop ] === value )
+					 return prop;
+			}
+		}
+		return false;
+	}
+	
+	function parse_room_name(room_name,flags_definition) {
+		
+		var flags = {};
+		while (room_name.length)
+		{
+			var flag_name = getKeyByValue(room_name[room_name.length-1], flags_definition);
+			if (flag_name === false)
+				break;
+			
+			room_name = room_name.slice(0,-1);
+			flags[flag_name] = true;
+		}
+
+		return {room_name: room_name, flags: flags};
+	}
+	
+	var parsed_room_name = parse_room_name(room_name,{plus: '+', secret: '*'});
+	var flags = parsed_room_name.flags;
+	room_name = parsed_room_name.room_name;
+	
+	
 	$('#canvas').prepend($('<h1></h1>').addClass('swarm-name').text(room_name.length == 0 ? 'swarm' : room_name));
 	socket.emit('swarm',room_name);
+	
+	if ('plus' in flags)
+	{
+		$('.swarm-name').css({position: 'fixed'});
+		$('#canvas').css({height: 2000});
+	}
+	
+	if ('secret' in flags)
+	{
+		window.history.pushState({},null,'/');
+		$('.swarm-name').remove();
+	}
 });
 
 socket.on('catchUp',function(bits) {
