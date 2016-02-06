@@ -79,27 +79,7 @@ class Bit extends Component {
 			});
 		
 		this.editTimeout = null;
-//  		this.autoheight();
 	}
-	
-/*	componentDidUpdate() {
-		console.log('did update ! RIRAINDEUUUR');
-//		this.autoheight();
-		$(ReactDOM.findDOMNode(this)).find('.bit__text').val(this.props.text); // in case the server updated the store @todo
-	}*/
-	/*
-	autoheight () {
-		var $el = $(ReactDOM.findDOMNode(this)).find('.bit__text')
-		if (!$el.prop('scrollTop')) {
-			do {
-				var b = $el.prop('scrollHeight');
-				var h = $el.height();
-				$el.height(h - 5);
-			}
-			while (b && (b != $el.prop('scrollHeight')));
-		};
-		$el.height($el.prop('scrollHeight') + 20);
-	}*/
 	
 	updateContentEditableText() {
 		function escapeHTML(str) {
@@ -107,7 +87,10 @@ class Bit extends Component {
 			div.appendChild(document.createTextNode(str));
 			return div.innerHTML;
 		};
-		this.refs.contentEditable.innerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');
+		
+		var newInnerHTML = escapeHTML(this.props.text).replace(/\n/g,'<br>');
+		if (this.refs.contentEditable.innerHTML != newInnerHTML) // @todo react should do this
+			this.refs.contentEditable.innerHTML = newInnerHTML
 	}
 	
 	componentDidUpdate() {
@@ -140,6 +123,11 @@ class Bit extends Component {
 			}
 			
 			socket.emit('delete',{id_server: this.props.id_server});
+			
+			/*
+			<=>
+			if (this.props.id_server != null)
+				socket.emit('delete',{id_server: this.props.id_server});*/
 		}		
 		
 		var onInput = function(e) {
@@ -166,20 +154,15 @@ class Bit extends Component {
 				socket.emit('edit',{id_server: this.props.id_server, text: plaintext});
 			}
 			
-			console.log('this.editTimeout avant', this.editTimeout)
-			
-			if (this.editTimeout !== null) // https://jsperf.com/null-check-cleartimeout-vs-cleartimeout-null
+			if (this.editTimeout !== null)
 				clearTimeout(this.editTimeout);
 			
-			console.log('this.editTimeout après', this.editTimeout)
-			console.log(this);
 			this.editTimeout = setTimeout(sendTextToServer.bind(this),500);
 		}
 		
 		// <div className="bit__text" contentEditable onInput={onInput.bind(this)}>{this.props.text}</div>
 		// <textarea className="bit__text" defaultValue={this.props.text} onChange={onInput.bind(this)} />
 		
-		// todo nl2br sur this.props.text (ou css pre)
 		return (
 			<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
 						<div className="bit__handle"></div>
@@ -226,20 +209,6 @@ const Canvas = (props) => {
 		socket.emit('new',{id_client: id_client, top:relY, left:relX}); //todo wait before edit ?
 		return false;
 	};
-	
-	// to add:
-	// todo
-	
-	// either multiple keys ==> same component
-	
-	// probably this:
-	// OR key is client-side ==> bit.client_id ; bit.server_id (always use client_id (key) except for socket)
-	// but then, on edit => bit_id is client_id ? (client edit) or server_id ? (server edit)
-	// then, need separate actions... a bit of a pain in the neck. EDIT_SERVER, EDIT_CLIENT...
-	
-	// "react key waiting for server"
-	// "react key from server"
-	// "react assign key later"
 	
 	// shouldComponentUpdate <-- (conenteditable, nochange/nochangerequest)
 	
@@ -311,10 +280,7 @@ socket.on('catchUp',function(bits) {
 	   store.dispatch({type: 'DELETE_BIT_SERVER', id_server: obj.id_server});
 	});
 	
-	
-	
 	socket.on('edit',function(bit){
-		console.log({type: 'EDIT_BIT_SERVER', id_server: bit.id_server, text: bit.text});
 	   store.dispatch({type: 'EDIT_BIT_SERVER', id_server: bit.id_server, text: bit.text});
 	});
 	
@@ -339,9 +305,32 @@ function deleteIfEmpty(bit) {
 	}
 }
 
-window.onbeforeunload = function() {
+@todo flags
+@todo focus on new
+window.onbeforeunload = function() { @todo
 	if (Object.keys(editTimeouts).length > 0) // if store.hasNotEditedYet
 		return 'Please wait a short while so we can save your message.';
 	else
 		return null;
 }*/
+
+
+/*	componentDidUpdate() {
+		console.log('did update ! RIRAINDEUUUR');
+//		this.autoheight();
+		$(ReactDOM.findDOMNode(this)).find('.bit__text').val(this.props.text); // in case the server updated the store @todo
+	}*/
+	/*
+	autoheight () {
+		var $el = $(ReactDOM.findDOMNode(this)).find('.bit__text')
+		if (!$el.prop('scrollTop')) {
+			do {
+				var b = $el.prop('scrollHeight');
+				var h = $el.height();
+				$el.height(h - 5);
+			}
+			while (b && (b != $el.prop('scrollHeight')));
+		};
+		$el.height($el.prop('scrollHeight') + 20);
+	}*/
+	
