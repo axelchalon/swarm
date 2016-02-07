@@ -59,22 +59,20 @@ class Bit extends Component {
 	componentDidMount() {
 		
 		var $el = $(ReactDOM.findDOMNode(this));
-		var that = this;
-		
+		var this_component = this;
 		$el.draggable({
-				handle: ".bit__handle",
-				containment: "parent",
-				start: function(e) {
-					$(this).addClass('being-dragged');
-				},
-				stop: function(e,ui) { // ou stop comme on veut // @todo foutre Ã§a ailleurs
-					$(this).removeClass('being-dragged');
-					// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
-					store.dispatch({type: 'MOVE_BIT_CLIENT', id_client: that.props.id_client, left: ui.position.left, top: ui.position.top});
-					// @todo check if not tempId
-					socket.emit('move',{id_server: that.props.id_server, left: ui.position.left, top: ui.position.top}); // @todo store
-				}
-			});
+			handle: ".bit__handle",
+			containment: "parent",
+			start: function(e) {
+				$(this).addClass('being-dragged');
+			},
+			stop: function(e,ui) { // ou stop comme on veut // @todo foutre Ã§a ailleurs
+				$(this).removeClass('being-dragged');
+				store.dispatch({type: 'MOVE_BIT_CLIENT', id_client: this_component.props.id_client, left: ui.position.left, top: ui.position.top});
+				if (this_component.props.id_server !== null) // @todo if drag stop without id_server, new position isn't sent
+					socket.emit('move',{id_server: this_component.props.id_server, left: ui.position.left, top: ui.position.top});
+			}
+		});
 		
 		this.editTimeout = null;
 		
@@ -108,15 +106,11 @@ class Bit extends Component {
 		this.updateContentEditableText();	
 	}
 	
-	render() { // don't want to re-render on input ? but input should be consistent with the visuals! otherwise the other ppl won't see the same thing. @todo !!!
-		
-		// pour deux markups avec le même rendu, ça fait faire foirer le curseur...
-		
-		console.log('render bit');
+	render() {
 		
 		var onMouseDown = function(e){
-			e.stopPropagation(); // for canvas onMouseDown
-			return false;
+			/*e.stopPropagation(); // for canvas onMouseDown
+			return false;*/
 		};
 		
 		var onClickDelete = function(e) {
@@ -129,36 +123,15 @@ class Bit extends Component {
 		var onInput = function(e) {
 			
 			var sendTextToServer = function() { // @todo cette fonction ne devrait pas être ici
-				
-				console.log('sendtextoserver::innerhtml',this.refs.contentEditable.innerHTML);
-				
-				// @todo send only if not empty (on creation)
-				/*var tempDiv = document.createElement('div');
-				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/<div><br>/g, '<div>').replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // @todo ???
-				var plaintext = tempDiv.textContent; // @todo contenteditable is not predictable. newline creates div !?
-				*/
-				
-				// var plaintext = this.refs.contentEditable.innerHTML.replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // @todo ???
-				// var plaintext = this.refs.contentEditable.textContent; // @todo contenteditable is not predictable. newline creates div !?
-				/*var tempDiv = document.createElement('div');
-				tempDiv.innerHTML = this.refs.contentEditable.innerHTML.replace(/\n/g, '').replace(/<div><br>/g, '<div>').replace(/<br\/?>/g, '\n').replace(/<div>/g, '\n'); // just in case. normally we don't have any <div> at this point
-				var plaintext = tempDiv.textContent; */
-				// @@@
-				
 				var plaintext = this.refs.contentEditable.textContent;
-				
-				console.log('sendtextoserver::plaintext',plaintext)
 				
 				store.dispatch({type: 'EDIT_BIT_CLIENT', id_client: this.props.id_client, text: plaintext});
 				
 				if (this.props.id_server == null)
 				{
-					console.log('no id server yet');
-					this.editTimeout = setTimeout(sendTextToServer,500); // @todo accumule!
+					this.editTimeout = setTimeout(sendTextToServer,500);
 					return;
 				}
-				
-				console.log('emit');
 				socket.emit('edit',{id_server: this.props.id_server, text: plaintext});
 			}
 			
@@ -168,9 +141,6 @@ class Bit extends Component {
 			this.editTimeout = setTimeout(sendTextToServer.bind(this),500);
 		}
 		
-		// <div className="bit__text" contentEditable onInput={onInput.bind(this)}>{this.props.text}</div>
-		// <textarea className="bit__text" defaultValue={this.props.text} onChange={onInput.bind(this)} />
-		
 		return (
 			<div className="bit" style={{left: this.props.left, top: this.props.top}} onMouseDown={onMouseDown.bind(this)}>
 						<div className="bit__handle"></div>
@@ -178,56 +148,39 @@ class Bit extends Component {
 						<div className="bit__text" contentEditable onInput={onInput.bind(this)} ref="contentEditable"></div>
 			</div>
 		)
-		
-		// soit constamment mettre à jour le state sans rerender (moyen perfs, pas d'intérêt)
-		// soit mettre à jour le state à l'editTimeout et rerender <--
-		// si rerender hors-react, problème de curseur après edittimeout
-		// https://github.com/lovasoa/react-contenteditable ?
-		
-		// readinglist : https://github.com/facebook/react/issues/2533
-		
-		// @todo quand on edit le même texte à deux ça pète
-		
-		// textarea auto height https://jsfiddle.net/hmelenok/WM6Gq/ work well https://stackoverflow.com/questions/454202/creating-a-textarea-with-auto-resize/5346855#5346855 also
-		// convert to plaintext, ON PASTE ONLY: https://stackoverflow.com/questions/20365465/extract-text-from-html-while-preserving-block-level-element-newlines/20384452#20384452
-		// convert to plaintext : https://stackoverflow.com/questions/24408028/html5-contenteditable-div-accept-only-plaintext
-		// plaintext-only is a no-no
 	}
 }
 
-const Canvas = (props) => {
-	
-	var roomDisplayName = store.getState().swarmName || 'swarm';
+class Canvas extends Component {
+	render() {
+		var roomDisplayName = store.getState().swarmName || 'swarm';
 
-	var onMouseDown = function(e){
-		/*if( e.target !== this )
-			return;*/
-		
-		console.log(this);
-		console.log(e.target);
+		var this_component = this;
+		var onMouseDown = function(e){
+			if( e.target !== ReactDOM.findDOMNode(this_component) )
+				return;
+			
+			var parentOffset = $(e.target).offset();
+			var relX = e.pageX - parentOffset.left;
+			var relY = e.pageY - parentOffset.top - 5;
 
-		var parentOffset = $(e.target).offset();
-		var relX = e.pageX - parentOffset.left;
-		var relY = e.pageY - parentOffset.top - 5;
-		
-		// dans l'action "createBit"
-		var id_client = uniqid()
-		store.dispatch({type: 'ADD_BIT_CLIENT', bit: { text: '', id_client: id_client, left: relX, top: relY, id_server: null} });
-		console.warn(store.getState());
-		socket.emit('new',{id_client: id_client, top:relY, left:relX}); //todo wait before edit ?
-		return false;
-	};
-	
-	// shouldComponentUpdate <-- (conenteditable, nochange/nochangerequest)
-	
-	return (
-	<div id="canvas" onMouseDown={onMouseDown}>
-		<h1 className="swarm-name">{roomDisplayName}</h1>
-		{store.getState().bits.map( bit => 
-			<Bit key={bit.id_client} id_client={bit.id_client} id_server={bit.id_server} text={bit.text} left={bit.left} top={bit.top}/>
-		)}
-	</div>
-	);
+			var id_client = uniqid() // dans l'action "createBit" ?
+			store.dispatch({type: 'ADD_BIT_CLIENT', bit: { text: '', id_client: id_client, left: relX, top: relY, id_server: null} });
+			socket.emit('new',{id_client: id_client, top:relY, left:relX}); //todo wait before edit ?
+			return false;
+		};
+
+		// shouldComponentUpdate <-- (conenteditable, nochange/nochangerequest)
+
+		return (
+		<div id="canvas" onMouseDown={onMouseDown}>
+			<h1 className="swarm-name">{roomDisplayName}</h1>
+			{store.getState().bits.map( bit => 
+				<Bit key={bit.id_client} id_client={bit.id_client} id_server={bit.id_server} text={bit.text} left={bit.left} top={bit.top}/>
+			)}
+		</div>
+		);
+	}
 }
 
 
@@ -260,8 +213,6 @@ socket.on('connect', function() { // FSM pour éviter les bugs? refresh quand re
 	socket.emit('swarm',roomName);
 	
 	var room_display_name = roomName.length == 0 ? 'swarm' : roomName; // modif le store
-	
-	
 	
 	const render = () => {
 		ReactDOM.render(
@@ -483,4 +434,11 @@ window.onbeforeunload = function() { @todo
 		};
 		$el.height($el.prop('scrollHeight') + 20);
 	}*/
+
+
+		
+		
+		// textarea auto height https://jsfiddle.net/hmelenok/WM6Gq/ work well https://stackoverflow.com/questions/454202/creating-a-textarea-with-auto-resize/5346855#5346855 also
+		// convert to plaintext, ON PASTE ONLY: https://stackoverflow.com/questions/20365465/extract-text-from-html-while-preserving-block-level-element-newlines/20384452#20384452
+		// convert to plaintext : https://stackoverflow.com/questions/24408028/html5-contenteditable-div-accept-only-plaintext
 	
