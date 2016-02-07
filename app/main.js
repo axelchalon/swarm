@@ -57,9 +57,10 @@ var store = createStore( (state, action) => {
 class Bit extends Component {
 	
 	componentDidMount() {
+		
 		var $el = $(ReactDOM.findDOMNode(this));
 		var that = this;
-		console.log($el);
+		
 		$el.draggable({
 				handle: ".bit__handle",
 				containment: "parent",
@@ -77,7 +78,14 @@ class Bit extends Component {
 		
 		this.editTimeout = null;
 		
-		this.updateContentEditableText();  
+		this.updateContentEditableText();
+		
+		if (this.props.id_server == null)
+		{
+			setTimeout(function(){
+				this.refs.contentEditable.focus();
+			}.bind(this),1);
+		}
 	}
 	
 	updateContentEditableText() {
@@ -449,7 +457,6 @@ function deleteIfEmpty(bit) {
 }
 
 @todo flags
-@todo focus on new
 window.onbeforeunload = function() { @todo
 	if (Object.keys(editTimeouts).length > 0) // if store.hasNotEditedYet
 		return 'Please wait a short while so we can save your message.';
