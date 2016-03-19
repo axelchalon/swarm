@@ -14,7 +14,7 @@ var store = createStore( (state, action) => {
 	// @todo use {bit: } as param always?
 	switch (action.type)
 	{
-		case 'HYDRATE':
+		case 'HYDRATE': // @todo ne pas assign mais renvoyer un nouvel objet
 			return Object.assign({}, state, { bits: action.bits.map(bit => Object.assign({}, bit, {id_client: uniqid()})) });
 			break;
 		case 'CHANGE_SWARM':
