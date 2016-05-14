@@ -1,17 +1,17 @@
 {
-  "name": "swarm-client",
+  "name": "swarm",
   "version": "1.0.0",
   "description": "Public online whiteboard",
+  "main": "server.js",
   "dependencies": {
-    "brunch": "*",
-    "javascript-brunch": "^1.8.0",
-    "redux": "^3.0.5",
-    "sass-brunch": "^1.9.2"
+    "nedb": "^1.5.0",
+    "socket.io": "^1.3.7"
+  },
+  "devDependencies": {
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "./node_modules/brunch/bin/brunch build",
-    "watch": "PATH=$(npm bin):$PATH brunch watch"
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
