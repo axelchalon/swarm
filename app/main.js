@@ -1,5 +1,8 @@
 'use strict';
 
+var gridX = 10;
+var gridY = 10;
+
 // The temporary <div/> is to perform HTML entity encoding reliably.
 //
 // document.createElement() is *much* faster than jQuery('<div></div>')
@@ -34,6 +37,20 @@ function appendBit(bit,id,created_by_user)
 		.draggable({
 			handle: ".bit__handle",
 			containment: "parent",
+            // grid: [ gridX, gridY ], nécessite que tous les bits soient sur la grille (clean au receive?) mais ça fausse
+            drag: function( event, ui ) {
+                var snapTolerance = $(this).draggable('option', 'snapTolerance');
+                var topRemainder = ui.position.top % gridY;
+                var leftRemainder = ui.position.left % gridX;
+
+                if (topRemainder <= snapTolerance) {
+                    ui.position.top = ui.position.top - topRemainder;
+                }
+
+                if (leftRemainder <= snapTolerance) {
+                    ui.position.left = ui.position.left - leftRemainder;
+                }
+            },
 			start: function(e) {
 				$(this).addClass('being-dragged');
 			},
@@ -138,6 +155,11 @@ socket.on('catchUp',function(bits) {
 		var parentOffset = $(this).offset();
 		var relX = e.pageX - parentOffset.left;
 		var relY = e.pageY - parentOffset.top - 5;
+        
+        // Grid
+        relX = Math.round(relX/gridX)*gridX
+        relY = Math.round(relY/gridY)*gridY
+        
 		var id = Math.floor(Math.random()*100000); // magic is happening
 		appendBit({left: relX, top: relY}, id, true);
 
