@@ -83,10 +83,6 @@ small {
 		border: 1px dashed black;
 		cursor: crosshair;
 		position: relative;
-		&.extended {
-			height: 2000px;
-			.swarm-name { position: fixed; }
-		}
 		
 		.swarm-name {
 			position: absolute;
@@ -131,7 +127,6 @@ small {
 			}
 			
 			.bit__text {
-				resize: none;
 				background: white;
 				padding: 5px;
 				margin-top: 5px;
@@ -141,7 +136,6 @@ small {
 				outline: 0;
 				font-size: 12px;
 				line-height: 1.2;
-				white-space: pre-wrap;
 			}
 		}
 		

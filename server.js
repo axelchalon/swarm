@@ -1,14 +1,22 @@
-var Datastore = require('nedb');
+var http = require('http'),
+	Datastore = require('nedb');
 
 var db = new Datastore({ filename: 'data.db', autoload: true });
+// var db = {}
 
+// Send index.html to all requests
+var app = http.createServer(function(req, res) {
+    res.writeHead(200, 'Nothing here. You\'re on the socket port.');
+    res.end();
+});
 
 // Socket.io server listens to our app
-var io = require('socket.io').listen(1336);
+var io = require('socket.io').listen(app);
 
+console.log('listening');
 // Emit welcome message on connection
 io.sockets.on('connection', function(socket) {
-
+console.log('connection');
 	socket.on('swarm', function(swarm_name) {
 		if (swarm_name.length == 0) swarm_name = '/';
 		swarm_name = swarm_name.toLowerCase();
@@ -23,9 +31,7 @@ io.sockets.on('connection', function(socket) {
 			}
 			else
 			{
-				console.log('preparing to send catch up');
-				var mappedDocs = docs.map(function(obj) { return {top: obj.top, left: obj.left, text: obj.text, id_server: obj._id}; });	
-				console.log('sending catch up');
+				var mappedDocs = docs.map(function(obj) { return {top: obj.top, left: obj.left, text: obj.text, id: obj._id}; });
 				socket.emit('catchUp',mappedDocs);
 			}
 		});
@@ -34,8 +40,8 @@ io.sockets.on('connection', function(socket) {
     socket.on('new', function(obj) {
 		db.insert({swarm: socket.swarm_name, top: obj.top, left: obj.left, text: ''}, function(err, newDoc) {	
 			console.log('insert new');
-			socket.broadcast.to(socket.swarm_name).emit('new',{id_server: newDoc._id, top: newDoc.top, left: newDoc.left, text: newDoc.text});
-			socket.emit('tempIdIsId',{id_client: obj.id_client, id_server:newDoc._id});
+			socket.broadcast.to(socket.swarm_name).emit('new',{id: newDoc._id, top: newDoc.top, left: newDoc.left, text: newDoc.text});
+			socket.emit('tempIdIsId',{temp_id: obj.id, id:newDoc._id});
 		});
 		
 		// send "is actually id..."
@@ -44,31 +50,31 @@ io.sockets.on('connection', function(socket) {
     });
     
     socket.on('move', function(obj) {		
-		db.update({ _id: obj.id_server }, { $set: { top: obj.top, left: obj.left} }, {}, function (err) {
+		db.update({ _id: obj.id }, { $set: { top: obj.top, left: obj.left} }, {}, function (err) {
 			if (err)
 			{
 				console.log('MOVE ERROR');
 				console.log(err);
 			}
 			else
-				socket.broadcast.to(socket.swarm_name).emit('move',{id_server: obj.id_server, top: obj.top, left: obj.left});
+				socket.broadcast.to(socket.swarm_name).emit('move',{id: obj.id, top: obj.top, left: obj.left});
 		});
 	});
     
-    socket.on('delete', function(obj) {
-		db.remove({ _id: obj.id_server }, {}, function (err, numRemoved) {
+    socket.on('delete', function(id) {
+		db.remove({ _id: id }, {}, function (err, numRemoved) {
 			if (err)
 			{
 				console.log('DELETE ERROR');
 				console.log(err);
 			}
 			else
-				socket.broadcast.to(socket.swarm_name).emit('delete',{id_server: obj.id_server});
+				socket.broadcast.to(socket.swarm_name).emit('delete',id);
 		});
     });
     
     socket.on('edit', function(obj) {
-		db.update({ _id: obj.id_server }, { $set: { text: obj.text} }, {}, function (err) {
+		db.update({ _id: obj.id }, { $set: { text: obj.text} }, {}, function (err) {
 			console.log('edit');
 			console.log(obj);
 			if (err)
@@ -77,10 +83,16 @@ io.sockets.on('connection', function(socket) {
 				console.log(err);
 			}
 			else
-				socket.broadcast.to(socket.swarm_name).emit('edit',{id_server: obj.id_server, text: obj.text});
+				socket.broadcast.to(socket.swarm_name).emit('edit',{id: obj.id, text: obj.text});
 		});
         
+    });
+    
+    socket.on('purge',function() {
+        console.log('Attempted purge.');
     });
 });
 
 // @todo verif si obj contient left top text etc.
+
+app.listen(1336);
