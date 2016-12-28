@@ -1,0 +1,6 @@
+Options +FollowSymlinks -Indexes
+RewriteEngine On
+
+#alias all ATTENTION FICHIER PHP
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^[a-zA-Z0-9]+(\+\*|\*\+|\*|\+)?$ index.html [L,QSA]

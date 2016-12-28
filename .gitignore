@@ -1,0 +1,5 @@
+node_modules/
+*.log
+app/style.css
+app/style.css.map
+*.db
