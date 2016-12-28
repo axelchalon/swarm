@@ -5,12 +5,14 @@ See "issues" on GitHub.
 
 # Installation (production)
 - npm install
-- brunch build
-- node server.js (use it in combination with screen, tmux or another alternative)
+- npm install -g node-sass
+- npm run scss
+- node server.js
 
 # Installation (development)
 - npm install
-- brunch watch
+- npm install -g node-sass
+- npm run scssw
 - node server.js
 
 # Contributing
