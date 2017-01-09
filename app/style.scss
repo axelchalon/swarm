@@ -74,7 +74,7 @@ small {
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
-	
+
 	div#canvas {
 		width: 1024px;
 		height: 768px;
@@ -83,9 +83,10 @@ small {
 		border: 1px dashed black;
 		cursor: crosshair;
 		position: relative;
-		
+
 		.swarm-name {
 			position: absolute;
+			position: fixed;
 			z-index: 0;
 			color: #CFCFCF;
 			font-size: 30px;
@@ -94,7 +95,7 @@ small {
 			transform: translateX(-50%) translateY(-50%);
 			pointer-events: none;
 		}
-		
+
 		.bit {
 			display: block;
 			position: absolute;
@@ -102,30 +103,30 @@ small {
 			border: 0; outline: 0;
 			max-width: 320px;
 			font-size: 12px; line-height: 1.25;
-			
+
 			&:not(.being-dragged) {
 				transition: top 0.3s, left 0.3s;
 			}
-			
+
 			.bit__handle {
 				display: none;
 				position: absolute; left: -5px; top: 0px; right: 0; height: 10px;
 				background: #B7B7B7;
 				cursor: move;
 			}
-			
+
 			.bit__delete {
 				display: none;
 				position: absolute; left: -5px; top: 0px; width: 10px; height: 10px;
 				background: red;
 				cursor: pointer;
 			}
-			
+
 			&:hover .bit__delete,
 			&:hover .bit__handle {
 				display: block;
 			}
-			
+
 			.bit__text {
 				background: white;
 				padding: 5px;
@@ -138,7 +139,7 @@ small {
 				line-height: 1.2;
 			}
 		}
-		
+
 	}
-	
+
 }

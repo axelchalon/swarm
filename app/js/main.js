@@ -1,23 +1,96 @@
 'use strict';
 
-// # utils
-
-// The temporary <div/> is to perform HTML entity encoding reliably.
-//
-// document.createElement() is *much* faster than jQuery('<div></div>')
-// http://stackoverflow.com/questions/268490/
-//
-// You don't need jQuery but then you need to struggle with browser
-// differences in innerText/textContent yourself
-function escapeAndNl2br(text) {
-	var htmls = [];
-	var lines = text.split(/\n/);
-	var tmpDiv = jQuery(document.createElement('div'));
-	for (var i = 0 ; i < lines.length ; i++) {
-		htmls.push(tmpDiv.text(lines[i]).html());
+// # UTILS
+var utils = {
+	escapeAndNl2br: function(text) {
+		var htmls = [];
+		var lines = text.split(/\n/);
+		var tmpDiv = jQuery(document.createElement('div'));
+		for (var i = 0 ; i < lines.length ; i++) {
+			htmls.push(tmpDiv.text(lines[i]).html());
+		}
+		return htmls.join("<br>");
 	}
-	return htmls.join("<br>");
-}
+};
+
+// # VUE
+var app = new Vue({
+  el: '#app',
+  data: {
+		GRID_X: 10, /* todo namespace the constants somewhere else than data */
+		GRID_Y: 10,
+		screen: 'loading', // 'loading' | 'active' | 'error'
+		roomName: undefined,
+		flags: [],
+		bits: []
+  },
+	methods: {
+		initializeSocketEvents: function() {
+			socket.on('connect_error', (e) => {
+				this.screen = 'error'
+			});
+
+			socket.on('connect', () => {
+				console.log('CONNECT')
+				if (!firstConnection) {
+					socket.emit('swarm',room_name);
+					return;
+				}
+				firstConnection = false;
+
+				console.log('CONNECT :: firstTime')
+				var [_, roomName, flagsString] = window.location.href.match(/\/([^/+*]*)([+*]*)$/)
+				this.flags = flagsString.split('').reduce((acc,flagLetter) => {
+					var assoc = {'+' : 'plus', '*': 'secret'};
+					if (flagLetter in assoc) acc.push(assoc[flagLetter]);
+					return acc;
+				}, []);
+				this.roomName = roomName;
+				console.log('flags : ', this.flags)
+				console.log('roomName : ', this.roomName)
+
+				socket.emit('swarm',room_name);
+
+				if ('secret' in flags) {
+					window.history.pushState({},null,'/');
+				}
+			});
+
+			socket.on('catchUp',function(bits) {
+				console.log('CATCH UP')
+				this.screen = 'active'
+				this.bits = bits;
+				// $.each(bits,function(i,bit){ appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
+			});
+			// @todo encodage
+			// remove all
+
+			socket.on('tempIdIsId',function(obj){
+			   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
+				 // o shit
+			});
+			socket.on('new',function(bit){
+				this.bits.push(bit);
+			});
+			socket.on('move',function(updatedBit){
+				this.bits = this.bits.map((bit) => {
+					if (bit.id == bit.id)
+					{
+						bit.top = updatedBit.top;
+						bit.left = updatedBit.left;
+					}
+					return bit;
+				})
+			});
+			socket.on('delete',function(id){
+				this.bits = this.bits.filter((bit) => bit.id != id)
+			});
+			socket.on('edit',function(bit){
+			   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
+			});
+		}
+	}
+})
 
 // # ui functions
 
@@ -47,7 +120,7 @@ function appendBit(bit,id,created_by_user) {
             // grid: [ gridX, gridY ], nécessite que tous les bits soient sur la grille (clean au receive?) mais ça fausse
             drag: function( event, ui ) {
                 var snapTolerance = $(this).draggable('option', 'snapTolerance');
-                var topRemainder = ui.position.top % gridY;
+                var topRemainder = ui.position.top % gridY; // @todo rename
                 var leftRemainder = ui.position.left % gridX;
 
                 if (topRemainder <= snapTolerance) {
@@ -81,11 +154,6 @@ function appendBit(bit,id,created_by_user) {
 
 // var ff = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
-// # constants
-
-var gridX = 10;
-var gridY = 10;
-
 // # var
 
 // Throttles the rate at which we send edit updates to the server
@@ -100,98 +168,6 @@ if (location.hostname == 'swarm.ovh')
 	var socket = io.connect('http://141.138.157.211:1336');
 else
 	var socket = io.connect('http://127.0.0.1:1336');
-
-socket.on('connect_error', function(e) {
-	$('.page').removeClass('active');
-	$('.page--internal-error').addClass('active');
-});
-
-socket.on('connect', function() {
-	console.log('CONNECT')
-	if (!firstConnection) {
-		socket.emit('swarm',room_name);
-		return;
-	}
-	firstConnection = false;
-
-	console.log('CONNECT :: firstTime')
-	room_name = window.location.href.match(/\/[^/]+$/);
-	if (room_name == null) room_name = '';
-	else room_name = room_name[0].substr(1);
-
-	function getKeyByValue( value, haystack ) {
-		for( var prop in haystack ) {
-			if( haystack.hasOwnProperty( prop ) ) {
-				 if( haystack[ prop ] === value )
-					 return prop;
-			}
-		}
-		return false;
-	}
-
-	function parse_room_name(room_name,flags_definition) {
-
-		var flags = {};
-		while (room_name.length)
-		{
-			var flag_name = getKeyByValue(room_name[room_name.length-1], flags_definition);
-			if (flag_name === false)
-				break;
-
-			room_name = room_name.slice(0,-1);
-			flags[flag_name] = true;
-		}
-
-		return {room_name: room_name, flags: flags};
-	}
-
-	var parsed_room_name = parse_room_name(room_name,{plus: '+', secret: '*'});
-	var flags = parsed_room_name.flags;
-	room_name = parsed_room_name.room_name;
-
-
-	$('#canvas').prepend($('<h1></h1>').addClass('swarm-name').text(room_name.length == 0 ? 'swarm' : room_name));
-	socket.emit('swarm',room_name);
-
-	if ('plus' in flags)
-	{
-		$('.swarm-name').css({position: 'fixed'});
-		$('#canvas').css({height: 4000});
-	}
-
-	if ('secret' in flags)
-	{
-		window.history.pushState({},null,'/');
-		$('.swarm-name').remove();
-	}
-});
-
-socket.on('catchUp',function(bits) {
-	console.log('CATCH UP')
-	removeAllBits();
-	$('.page').removeClass('active');
-	$('.page--swarm').addClass('active');
-	$.each(bits,function(i,bit){ appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
-});
-// @todo encodage
-// remove all
-
-socket.on('tempIdIsId',function(obj){
-   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
-});
-socket.on('new',function(bit){
-   appendBit({left: bit.left, top: bit.top}, bit.id)
-});
-socket.on('move',function(bit){
-   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
-});
-socket.on('delete',function(id){
-   $('[data-id='+id+']').remove();
-});
-socket.on('edit',function(bit){
-   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
-});
-
 
 // # ui events
 
@@ -210,9 +186,9 @@ $('#canvas').on('mousedown',function(e){
 	var relX = e.pageX - parentOffset.left;
 	var relY = e.pageY - parentOffset.top - 5;
 
-      // Grid
-      relX = Math.round(relX/gridX)*gridX
-      relY = Math.round(relY/gridY)*gridY
+  // Grid
+  relX = Math.round(relX/gridX)*gridX // @todo rename
+  relY = Math.round(relY/gridY)*gridY
 
 	var id = Math.floor(Math.random()*100000); // magic is happening
 	appendBit({left: relX, top: relY}, id, true);
