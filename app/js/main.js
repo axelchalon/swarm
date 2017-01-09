@@ -1,7 +1,6 @@
 'use strict';
 
-var gridX = 10;
-var gridY = 10;
+// # utils
 
 // The temporary <div/> is to perform HTML entity encoding reliably.
 //
@@ -20,17 +19,20 @@ function escapeAndNl2br(text) {
 	return htmls.join("<br>");
 }
 
-// Throttles the rate at which we send edit updates to the server
-var editTimeouts = {};
+// # ui functions
 
-function removeAllBits()
-{
+function deleteIfEmpty(bit) {
+	if ($(this).text().length < 1) {
+		$(this).siblings('.bit__delete').trigger('mousedown');
+	}
+}
+
+function removeAllBits() {
 	$('#canvas .bit__text').remove();
 }
 
 // Displays a bit
-function appendBit(bit,id,created_by_user)
-{
+function appendBit(bit,id,created_by_user) {
 	if (typeof focus == 'undefined') focus = false;
 
 	var $bit = $($('.template-bit').html()) // or children.clone
@@ -79,6 +81,21 @@ function appendBit(bit,id,created_by_user)
 
 // var ff = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
+// # constants
+
+var gridX = 10;
+var gridY = 10;
+
+// # var
+
+// Throttles the rate at which we send edit updates to the server
+var editTimeouts = {};
+
+var firstConnection = true;
+var room_name;
+
+// # procedural
+
 if (location.hostname == 'swarm.ovh')
 	var socket = io.connect('http://141.138.157.211:1336');
 else
@@ -89,8 +106,6 @@ socket.on('connect_error', function(e) {
 	$('.page--internal-error').addClass('active');
 });
 
-var firstConnection = true;
-var room_name;
 socket.on('connect', function() {
 	console.log('CONNECT')
 	if (!firstConnection) {
@@ -161,6 +176,25 @@ socket.on('catchUp',function(bits) {
 // @todo encodage
 // remove all
 
+socket.on('tempIdIsId',function(obj){
+   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
+});
+socket.on('new',function(bit){
+   appendBit({left: bit.left, top: bit.top}, bit.id)
+});
+socket.on('move',function(bit){
+   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
+});
+socket.on('delete',function(id){
+   $('[data-id='+id+']').remove();
+});
+socket.on('edit',function(bit){
+   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
+});
+
+
+// # ui events
+
 $('#canvas').on('mousedown',function(e){
 	if ($(e.target).is('.bit__delete'))
 	{
@@ -211,28 +245,6 @@ $('#canvas').on('input','.bit__text',function(e){ // todo on input sur bit-text?
 		}
 		editTimeouts[id] = setTimeout(sendTextToServer,500);
 });
-
-socket.on('tempIdIsId',function(obj){
-   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
-});
-socket.on('new',function(bit){
-   appendBit({left: bit.left, top: bit.top}, bit.id)
-});
-socket.on('move',function(bit){
-   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
-});
-socket.on('delete',function(id){
-   $('[data-id='+id+']').remove();
-});
-socket.on('edit',function(bit){
-   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
-});
-
-function deleteIfEmpty(bit) {
-	if ( $(this).text().length < 1 ) {
-		$(this).siblings('.bit__delete').trigger('mousedown');
-	}
-}
 
 window.onbeforeunload = function() {
 	if (Object.keys(editTimeouts).length > 0)
