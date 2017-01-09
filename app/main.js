@@ -23,6 +23,11 @@ function escapeAndNl2br(text) {
 // Throttles the rate at which we send edit updates to the server
 var editTimeouts = {};
 
+function removeAllBits()
+{
+	$('#canvas .bit__text').remove();
+}
+
 // Displays a bit
 function appendBit(bit,id,created_by_user)
 {
@@ -84,11 +89,21 @@ socket.on('connect_error', function(e) {
 	$('.page--internal-error').addClass('active');
 });
 
+var firstConnection = true;
+var room_name;
 socket.on('connect', function() {
-	var room_name = window.location.href.match(/\/[^/]+$/);
+	console.log('CONNECT')
+	if (!firstConnection) {
+		socket.emit('swarm',room_name);
+		return;
+	}
+	firstConnection = false;
+
+	console.log('CONNECT :: firstTime')
+	room_name = window.location.href.match(/\/[^/]+$/);
 	if (room_name == null) room_name = '';
 	else room_name = room_name[0].substr(1);
-	
+
 	function getKeyByValue( value, haystack ) {
 		for( var prop in haystack ) {
 			if( haystack.hasOwnProperty( prop ) ) {
@@ -98,37 +113,37 @@ socket.on('connect', function() {
 		}
 		return false;
 	}
-	
+
 	function parse_room_name(room_name,flags_definition) {
-		
+
 		var flags = {};
 		while (room_name.length)
 		{
 			var flag_name = getKeyByValue(room_name[room_name.length-1], flags_definition);
 			if (flag_name === false)
 				break;
-			
+
 			room_name = room_name.slice(0,-1);
 			flags[flag_name] = true;
 		}
 
 		return {room_name: room_name, flags: flags};
 	}
-	
+
 	var parsed_room_name = parse_room_name(room_name,{plus: '+', secret: '*'});
 	var flags = parsed_room_name.flags;
 	room_name = parsed_room_name.room_name;
-	
-	
+
+
 	$('#canvas').prepend($('<h1></h1>').addClass('swarm-name').text(room_name.length == 0 ? 'swarm' : room_name));
 	socket.emit('swarm',room_name);
-	
+
 	if ('plus' in flags)
 	{
 		$('.swarm-name').css({position: 'fixed'});
 		$('#canvas').css({height: 4000});
 	}
-	
+
 	if ('secret' in flags)
 	{
 		window.history.pushState({},null,'/');
@@ -137,79 +152,81 @@ socket.on('connect', function() {
 });
 
 socket.on('catchUp',function(bits) {
+	console.log('CATCH UP')
+	removeAllBits();
 	$('.page').removeClass('active');
 	$('.page--swarm').addClass('active');
 	$.each(bits,function(i,bit){ appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id); });
-
-	$('#canvas').on('mousedown',function(e){
-		if ($(e.target).is('.bit__delete'))
-		{
-			socket.emit('delete',$(e.target).parent().data('id'));
-			$(e.target).parent().remove();
-			return true;
-		}
-
-		if( e.target !== this )
-			return;
-
-		var parentOffset = $(this).offset();
-		var relX = e.pageX - parentOffset.left;
-		var relY = e.pageY - parentOffset.top - 5;
-        
-        // Grid
-        relX = Math.round(relX/gridX)*gridX
-        relY = Math.round(relY/gridY)*gridY
-        
-		var id = Math.floor(Math.random()*100000); // magic is happening
-		appendBit({left: relX, top: relY}, id, true);
-
-		socket.emit('new',{id: id, top:relY, left:relX}); //todo wait before edit ?
-		return false;
-	});
-
-	$('#canvas').on('input','.bit__text',function(e){ // todo on input sur bit-text?
-			var $bit_message = $(e.target);
-			var $bit = $bit_message.closest('.bit')
-			var id = $bit.data('tempid') || $bit.data('id'); // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
-			if (typeof(editTimeouts[id]) !== 'undefined')
-				clearInterval(editTimeouts[id]);
-
-			var sendTextToServer = function() {
-				if (typeof($bit.data('id')) === 'undefined')
-				{
-					editTimeouts[id] = setTimeout(sendTextToServer,500);
-					return;
-				}
-				var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-				// var $el_with_linebreaks = $bit_message.clone();
-				// var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
-				var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
-				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
-				
-				socket.emit('edit',{id: $bit.data('id'), text: plaintext});
-				delete editTimeouts[id];
-			}
-			editTimeouts[id] = setTimeout(sendTextToServer,500);
-	});
-	
-	socket.on('tempIdIsId',function(obj){
-	   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
-	});
-	socket.on('new',function(bit){
-	   appendBit({left: bit.left, top: bit.top}, bit.id)
-	});
-	socket.on('move',function(bit){
-	   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
-	});
-	socket.on('delete',function(id){
-	   $('[data-id='+id+']').remove();
-	});
-	socket.on('edit',function(bit){
-	   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
-	});
 });
 // @todo encodage
 // remove all
+
+$('#canvas').on('mousedown',function(e){
+	if ($(e.target).is('.bit__delete'))
+	{
+		socket.emit('delete',$(e.target).parent().data('id'));
+		$(e.target).parent().remove();
+		return true;
+	}
+
+	if( e.target !== this )
+		return;
+
+	var parentOffset = $(this).offset();
+	var relX = e.pageX - parentOffset.left;
+	var relY = e.pageY - parentOffset.top - 5;
+
+      // Grid
+      relX = Math.round(relX/gridX)*gridX
+      relY = Math.round(relY/gridY)*gridY
+
+	var id = Math.floor(Math.random()*100000); // magic is happening
+	appendBit({left: relX, top: relY}, id, true);
+
+	socket.emit('new',{id: id, top:relY, left:relX}); //todo wait before edit ?
+	return false;
+});
+
+$('#canvas').on('input','.bit__text',function(e){ // todo on input sur bit-text?
+		var $bit_message = $(e.target);
+		var $bit = $bit_message.closest('.bit')
+		var id = $bit.data('tempid') || $bit.data('id'); // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
+		if (typeof(editTimeouts[id]) !== 'undefined')
+			clearInterval(editTimeouts[id]);
+
+		var sendTextToServer = function() {
+			if (typeof($bit.data('id')) === 'undefined')
+			{
+				editTimeouts[id] = setTimeout(sendTextToServer,500);
+				return;
+			}
+			var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
+			// var $el_with_linebreaks = $bit_message.clone();
+			// var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
+			var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
+			var plaintext = jQuery(document.createElement('div')).html(html_content).text();
+
+			socket.emit('edit',{id: $bit.data('id'), text: plaintext});
+			delete editTimeouts[id];
+		}
+		editTimeouts[id] = setTimeout(sendTextToServer,500);
+});
+
+socket.on('tempIdIsId',function(obj){
+   $('[data-tempid='+obj.temp_id+']').attr('data-id',obj.id);
+});
+socket.on('new',function(bit){
+   appendBit({left: bit.left, top: bit.top}, bit.id)
+});
+socket.on('move',function(bit){
+   $('[data-id='+bit.id+']').css({top: bit.top, left: bit.left});
+});
+socket.on('delete',function(id){
+   $('[data-id='+id+']').remove();
+});
+socket.on('edit',function(bit){
+   $('[data-id='+bit.id+'] .bit__text').html(escapeAndNl2br(bit.text));
+});
 
 function deleteIfEmpty(bit) {
 	if ( $(this).text().length < 1 ) {
