@@ -10,6 +10,21 @@ var Utils = {
 			htmls.push(tmpDiv.text(lines[i]).html());
 		}
 		return htmls.join("<br>");
+	},
+	setTimeoutUnique: (function() {
+		var timeouts = {};
+		return function (fn,interval,uniqid) {
+			if (uniqid in timeouts)
+				clearTimeout(timeouts[uniqid])
+			timeouts[uniqid] = setTimeout(fn,interval)
+		}
+	})(),
+	setTimeoutUniqueRepeatUntil: (fn,interval,uniqid) => {
+		var fn_ = () => {
+			if (fn() === false)
+				this.setTimeoutUnique(fn_, interval, uniqid)
+		}
+		this.setTimeoutUnique(fn_, interval, uniqid)
 	}
 };
 
@@ -50,28 +65,22 @@ var View = {
 		});
 
 		$('#canvas').on('input','.bit__text',(e) => {
+				// Doesn't matter if we put this inside the callforward
 				var $bit_message = $(e.target);
 				var $bit = $bit_message.closest('.bit')
-				var id = $bit.data('tempid') || $bit.data('id'); // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
-				if (typeof(editTimeouts[id]) !== 'undefined')
-					clearInterval(editTimeouts[id]);
 
-				var sendTextToServer = function() {
+				// purely client; so that the editTimeout refers to the same id after reception of tempIdisId
+				var uniqid = $bit.data('tempid') || $bit.data('id');
+
+				setTimeoutUniqueRepeatUntil( () => {
 					if (typeof($bit.data('id')) === 'undefined')
-					{
-						editTimeouts[id] = setTimeout(sendTextToServer,500);
-						return;
-					}
+							return false
 					var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-					// var $el_with_linebreaks = $bit_message.clone();
-					// var html_content = $el_with_linebreaks.html().replace(/<\/div></g,"</div>\n<");
 					var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
 					var plaintext = jQuery(document.createElement('div')).html(html_content).text();
+					App.clientEditedBit({id: $bit.data('id'), text: plaintext}
+			 }, 3000, tempid_is_id )
 
-					socket.emit('edit',{id: $bit.data('id'), text: plaintext});
-					delete editTimeouts[id];
-				}
-				editTimeouts[id] = setTimeout(sendTextToServer,500);
 		});
 
 		window.onbeforeunload = function() {
@@ -228,15 +237,14 @@ var App = new Vue({
 	clientCreatedBit: function(bit) {
 		socket.emit('new', bit); //todo wait before edit ?
 	},
+	clientEditedBit: function(bit) {
+		socket.emit('edit',{id: bit.id, text: bit.text});
+		delete editTimeouts[id];
+	},
 	notSaved: functin() {
 		return Object.keys(this.editTimeouts).length > 0
 	}
 })
-
-// # var
-
-// Throttles the rate at which we send edit updates to the server
-var editTimeouts = {};
 
 // # procedural
 
@@ -244,3 +252,6 @@ if (location.hostname == 'swarm.ovh')
 	var socket = io.connect('http://141.138.157.211:1336');
 else
 	var socket = io.connect('http://127.0.0.1:1336');
+
+App.initializeSocketEvents(); // @todo socket est externe
+View.initializeEvents();
