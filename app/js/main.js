@@ -80,6 +80,14 @@ var View = {
             return false;
         });
 
+				$('#canvas').on('focus', '.bit__text', (e) => {
+					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
+				})
+
+				$('#canvas').on('blur', '.bit__text', (e) => {
+					$(e.target).closest('.bit').css('z-index','auto').removeClass('focus')
+				})
+
         $('#canvas').on('input', '.bit__text', (e) => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
