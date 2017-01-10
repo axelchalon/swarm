@@ -56,10 +56,6 @@ small {
 	font-style: italic;
 }
 
-.page:not(.active) {
-	display: none;
-}
-
 .page--loading,
 .page--internal-error {
 	position: absolute;

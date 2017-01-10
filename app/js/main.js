@@ -296,7 +296,7 @@ var App = new Vue({
                 left: bit.left,
                 top: bit.top
             });
-        }
+        },
         notSaved: function() {
             return Object.keys(Utils.setTimeoutUniue()).length > 0 // @todo editTimeouts!?
         }
