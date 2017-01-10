@@ -16,11 +16,15 @@ var Utils = {
         return function(fn, interval, uniqid) {
 						if (!arguments.length) return timeouts; // lol
             if (uniqid in timeouts)
-                clearTimeout(timeouts[uniqid])
-            timeouts[uniqid] = setTimeout(fn, interval)
+                clearTimeout(timeouts[uniqid]);
+            timeouts[uniqid] = setTimeout(
+							() => {
+								delete timeouts[uniqid]; // when checking for pending requests
+								fn()
+							}, interval);
         }
     })(),
-    setTimeoutUniqueRepeatUntil: (fn, interval, uniqid) => {
+    setTimeoutUniqueRepeatUntil: function(fn, interval, uniqid) {
         var fn_ = () => {
             if (fn() === false)
                 this.setTimeoutUnique(fn_, interval, uniqid)
@@ -33,7 +37,7 @@ var Utils = {
 var View = {
     GRID_X: 10,
     GRID_Y: 10,
-    SERVER_SEND_THROTTLE_INTERVAL: 3000,
+    SERVER_SEND_THROTTLE_INTERVAL: 500,
     initializeEvents: function() {
         $('#canvas').on('mousedown', (e) => {
             if ($(e.target).is('.bit__delete')) {
@@ -82,7 +86,7 @@ var View = {
             // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
             var uniqid = $bit.data('tempid') || $bit.data('id');
 
-            setTimeoutUniqueRepeatUntil(() => {
+            Utils.setTimeoutUniqueRepeatUntil(() => {
                 if (typeof($bit.data('id')) === 'undefined')
                     return false
                 var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
@@ -92,7 +96,7 @@ var View = {
                     id: $bit.data('id'),
                     text: plaintext
                 });
-            }, this.SERVER_SEND_THROTTLE_INTERVAL, 'edit' + uniqid)
+            }, this.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
 
         });
 
@@ -139,7 +143,7 @@ var View = {
                     // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
                     var uniqid = $bit.data('tempid') || $bit.data('id');
 
-                    setTimeoutUniqueRepeatUntil(() => {
+                    Utils.setTimeoutUniqueRepeatUntil(() => {
                         if (typeof($bit.data('id')) === 'undefined')
                             return false
                         App.clientMovedBit({
@@ -147,7 +151,7 @@ var View = {
                             left: ui.position.left,
                             top: ui.position.top
                         })
-                    }, this.SERVER_SEND_THROTTLE_INTERVAL, 'move' + uniqid)
+                    }, this.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
                 }
             });
 
@@ -191,23 +195,24 @@ var App = new Vue({
         screen: 'loading', // 'loading' | 'active' | 'error'
         roomName: undefined,
         firstConnection: true,
-        flags: []
+        flags: [],
+				socket: undefined
     },
     methods: {
         initializeSocketEvents: function() {
             if (location.hostname == 'swarm.ovh')
-                var socket = io.connect('http://141.138.157.211:1336');
+                this.socket = io.connect('http://141.138.157.211:1336');
             else
-                var socket = io.connect('http://127.0.0.1:1336');
+                this.socket = io.connect('http://127.0.0.1:1336');
 
-            socket.on('connect_error', (e) => {
+            this.socket.on('connect_error', (e) => {
                 this.screen = 'error'
             });
 
-            socket.on('connect', () => {
+            this.socket.on('connect', () => {
                 console.log('CONNECT')
                 if (!this.firstConnection) {
-                    socket.emit('swarm', this.roomName);
+                    this.socket.emit('swarm', this.roomName);
                     return;
                 }
                 this.firstConnection = false;
@@ -228,7 +233,7 @@ var App = new Vue({
                 console.log('flags : ', this.flags)
                 console.log('roomName : ', this.roomName)
 
-                socket.emit('swarm', this.roomName);
+                this.socket.emit('swarm', this.roomName);
 
                 if ('secret' in this.flags) {
                     window.history.pushState({}, null, '/');
@@ -237,7 +242,7 @@ var App = new Vue({
                 }
             });
 
-            socket.on('catchUp', (bits) => {
+            this.socket.on('catchUp', (bits) => {
                 console.log('CATCH UP');
                 View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
                 $.each(bits, function(i, bit) {
@@ -252,53 +257,53 @@ var App = new Vue({
 
             // @todo encodage
 
-            socket.on('tempIdIsId', (obj) => {
+            this.socket.on('tempIdIsId', (obj) => {
                 View.tempIdIsId(obj.temp_id, obj.id);
             });
 
-            socket.on('new', (bit) => {
+            this.socket.on('new', (bit) => {
                 View.appendBit({
                     left: bit.left,
                     top: bit.top
                 }, bit.id)
             });
 
-            socket.on('move', function(updatedBit) {
+            this.socket.on('move', function(updatedBit) {
                 View.moveBit(updatedBit)
             });
 
-            socket.on('delete', function(id) {
+            this.socket.on('delete', function(id) {
                 View.deleteBit({
                     id: id
                 });
             });
 
-            socket.on('edit', function(bit) {
+            this.socket.on('edit', function(bit) {
                 View.editBit(bit);
             });
         },
         clientDeletedBit: function(bit) {
-            socket.emit('delete', bit.id);
+            this.socket.emit('delete', bit.id);
         },
         clientCreatedBit: function(bit) {
-            socket.emit('new', bit); //todo wait until edit ?
+            this.socket.emit('new', bit); //todo wait until edit ?
         },
         clientEditedBit: function(bit) {
-            socket.emit('edit', {
+            this.socket.emit('edit', {
                 id: bit.id,
                 text: bit.text
             });
-            delete editTimeouts[id];
         },
         clientMovedBit: function(bit) {
-            socket.emit('move', {
+            this.socket.emit('move', {
                 id: bit.id,
                 left: bit.left,
                 top: bit.top
             });
         },
         notSaved: function() {
-            return Object.keys(Utils.setTimeoutUniue()).length > 0 // @todo editTimeouts!?
+					console.log('notsaved',Object.keys(Utils.setTimeoutUnique()))
+            return Object.keys(Utils.setTimeoutUnique()).length > 0
         }
     }
 })
