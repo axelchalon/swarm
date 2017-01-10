@@ -242,9 +242,9 @@ var App = new Vue({
                         '+': 'plus',
                         '*': 'secret'
                     };
-                    if (flagLetter in assoc) acc.push(assoc[flagLetter]);
+                    if (flagLetter in assoc) acc[assoc[flagLetter]] = true;
                     return acc;
-                }, []);
+                }, {});
                 console.log('flags : ', this.flags)
                 console.log('roomName : ', this.roomName)
 
