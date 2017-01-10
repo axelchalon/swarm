@@ -32,7 +32,7 @@
      	</div>
 
      	<div class="page page--swarm" v-show="screen == 'active'">
-    		<div id="canvas" v-bind:style="{ height: 'plus' in flags ? 4000 : 768 }">
+    		<div id="canvas" v-bind:style="{ height: 'plus' in flags ? '4000px' : '768px' }">
           <h1 class="swarm-name" v-show="! ('secret' in flags)">
             {{ roomName || 'swarm' }}
           </h1>
