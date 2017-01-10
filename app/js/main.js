@@ -73,6 +73,7 @@ var View = {
 				// purely client; so that the editTimeout refers to the same id after reception of tempIdisId
 				var uniqid = $bit.data('tempid') || $bit.data('id');
 
+				// @todo le faire aussi pour le move
 				setTimeoutUniqueRepeatUntil( () => {
 					if (typeof($bit.data('id')) === 'undefined')
 							return false
@@ -80,19 +81,16 @@ var View = {
 					var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
 					var plaintext = jQuery(document.createElement('div')).html(html_content).text();
 					App.clientEditedBit({id: $bit.data('id'), text: plaintext});
-			 }, this.SERVER_SEND_THROTTLE_INTERVAL, uniqid)
+			 }, this.SERVER_SEND_THROTTLE_INTERVAL, 'edit' + uniqid)
 
 		});
 
 		window.onbeforeunload = function() {
-			if (App.notSaved())
+			if (App.notSaved()) // @todo j'ai plus accès à la liste des timeouts
 				return 'Please wait a short while so we can save your message.';
 			else
 				return null;
 		}
-	},
-	removeAllBits: function() {
-		$('#canvas .bit__text').remove();
 	},
 	appendBit: function(bit,id,created_by_user) {
 		var $bit = $($('.template-bit').html()) // or children.clone
@@ -122,8 +120,16 @@ var View = {
 				},
 				stop: function(e,ui) { // ou stop comme on veut // @todo foutre ça ailleurs
 					$(this).removeClass('being-dragged');
-					// @todo, if we move the bit right after creating it and we release before receiving tempIdIsId, the event won't be sent. work out some sort of editTimeout sytem? use helper functions for both timeouts.
-					socket.emit('move',{id: $(this).data('id'), left: ui.position.left, top: ui.position.top});
+					var $bit = $(this)
+
+					// purely client; so that the editTimeout refers to the same id after reception of tempIdisId
+					var uniqid = $bit.data('tempid') || $bit.data('id');
+
+					setTimeoutUniqueRepeatUntil( () => {
+						if (typeof($bit.data('id')) === 'undefined')
+								return false
+						App.clientMovedBit({id: $bit.data('id'), left: ui.position.left, top: ui.position.top})
+				 }, this.SERVER_SEND_THROTTLE_INTERVAL, 'move' + uniqid)
 				}
 			});
 
@@ -135,6 +141,9 @@ var View = {
 			$bit.attr('data-id',id) // rather than .data() so that we can search for an id using CSS selectors
 
 		$bit.find('.bit__text').focusout(this.deleteIfEmpty);
+	},
+	removeAllBits: function() {
+		$('#canvas .bit__text').remove();
 	},
 	editBit: function(bit) {
 	   $('[data-id='+bit.id+'] .bit__text').html(Utils.escapeAndNl2br(bit.text));
@@ -244,11 +253,14 @@ var App = new Vue({
 			socket.emit('edit',{id: bit.id, text: bit.text});
 			delete editTimeouts[id];
 		},
+		clientMovedBit: function(bit) {
+			socket.emit('move',{id: bit.id, left: bit.left, top: bit.top});
+		}
 		notSaved: function() {
-			return Object.keys(this.editTimeouts).length > 0
+			return Object.keys(this.editTimeouts).length > 0 // @todo editTimeouts!?
 		}
 	}
 })
 
-App.initializeSocketEvents(); // @todo socket est externe
+App.initializeSocketEvents();
 View.initializeEvents();
