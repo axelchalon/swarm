@@ -32,6 +32,7 @@ var Utils = {
 var View = {
 	GRID_X: 10,
 	GRID_Y: 10,
+	SERVER_SEND_THROTTLE_INTERVAL: 3000,
 	initializeEvents: function() {
 		$('#canvas').on('mousedown',(e) => {
 			if ($(e.target).is('.bit__delete'))
@@ -78,8 +79,8 @@ var View = {
 					var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
 					var html_content = $el_with_linebreaks.html().replace(/<div>/g,"<div>\n");
 					var plaintext = jQuery(document.createElement('div')).html(html_content).text();
-					App.clientEditedBit({id: $bit.data('id'), text: plaintext}
-			 }, 3000, tempid_is_id )
+					App.clientEditedBit({id: $bit.data('id'), text: plaintext});
+			 }, this.SERVER_SEND_THROTTLE_INTERVAL, uniqid)
 
 		});
 
@@ -94,8 +95,6 @@ var View = {
 		$('#canvas .bit__text').remove();
 	},
 	appendBit: function(bit,id,created_by_user) {
-		if (typeof focus == 'undefined') focus = false;
-
 		var $bit = $($('.template-bit').html()) // or children.clone
 			.css({top: bit.top, left: bit.left})
 			.find('.bit__text')
@@ -105,19 +104,19 @@ var View = {
 			.draggable({
 				handle: ".bit__handle",
 				containment: "parent",
-	            drag: function( event, ui ) {
-	                var snapTolerance = $(this).draggable('option', 'snapTolerance');
-	                var topRemainder = ui.position.top % this.GRID_Y;
-	                var leftRemainder = ui.position.left % this.GRID_X;
+        drag: function( event, ui ) {
+            var snapTolerance = $(this).draggable('option', 'snapTolerance');
+            var topRemainder = ui.position.top % this.GRID_Y;
+            var leftRemainder = ui.position.left % this.GRID_X;
 
-	                if (topRemainder <= snapTolerance) {
-	                    ui.position.top = ui.position.top - topRemainder;
-	                }
+            if (topRemainder <= snapTolerance) {
+                ui.position.top = ui.position.top - topRemainder;
+            }
 
-	                if (leftRemainder <= snapTolerance) {
-	                    ui.position.left = ui.position.left - leftRemainder;
-	                }
-	            },
+            if (leftRemainder <= snapTolerance) {
+                ui.position.left = ui.position.left - leftRemainder;
+            }
+        },
 				start: function(e) {
 					$(this).addClass('being-dragged');
 				},
@@ -167,13 +166,18 @@ var App = new Vue({
   },
 	methods: {
 		initializeSocketEvents: function() {
+			if (location.hostname == 'swarm.ovh')
+				var socket = io.connect('http://141.138.157.211:1336');
+			else
+				var socket = io.connect('http://127.0.0.1:1336');
+
 			socket.on('connect_error', (e) => {
 				this.screen = 'error'
 			});
 
 			socket.on('connect', () => {
 				console.log('CONNECT')
-				if (!firstConnection) {
+				if (!this.firstConnection) {
 					socket.emit('swarm',this.roomName);
 					return;
 				}
@@ -194,7 +198,7 @@ var App = new Vue({
 
 				socket.emit('swarm',this.roomName);
 
-				if ('secret' in flags) {
+				if ('secret' in this.flags) {
 					window.history.pushState({},null,'/');
 				} else {
 					document.title = this.roomName + ' – SWARM';
@@ -204,7 +208,7 @@ var App = new Vue({
 			socket.on('catchUp',(bits) => {
 				console.log('CATCH UP');
 				View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
-				$.each(bits,function(i,bit){ View.appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id);
+				$.each(bits,function(i,bit){ View.appendBit({left: bit.left, top: bit.top, text: bit.text},bit.id) });
 				this.screen = 'active'
 			});
 
@@ -218,40 +222,33 @@ var App = new Vue({
 				View.appendBit({left: bit.left, top: bit.top}, bit.id)
 			});
 
-			socket.on('move',function(updatedBit){
+			socket.on('move',function(updatedBit) {
 				View.moveBit(updatedBit)
 			});
 
-			socket.on('delete',function(id){
+			socket.on('delete',function(id) {
 				View.deleteBit({id: id});
 			});
 
-			socket.on('edit',function(bit){
+			socket.on('edit',function(bit) {
 				View.editBit(bit);
 			});
+		},
+		clientDeletedBit: function(bit) {
+			socket.emit('delete',bit.id);
+		},
+		clientCreatedBit: function(bit) {
+			socket.emit('new', bit); //todo wait before edit ?
+		},
+		clientEditedBit: function(bit) {
+			socket.emit('edit',{id: bit.id, text: bit.text});
+			delete editTimeouts[id];
+		},
+		notSaved: function() {
+			return Object.keys(this.editTimeouts).length > 0
 		}
-	},
-	clientDeletedBit: function(bit) {
-		socket.emit('delete',bit.id);
-	},
-	clientCreatedBit: function(bit) {
-		socket.emit('new', bit); //todo wait before edit ?
-	},
-	clientEditedBit: function(bit) {
-		socket.emit('edit',{id: bit.id, text: bit.text});
-		delete editTimeouts[id];
-	},
-	notSaved: functin() {
-		return Object.keys(this.editTimeouts).length > 0
 	}
 })
-
-// # procedural
-
-if (location.hostname == 'swarm.ovh')
-	var socket = io.connect('http://141.138.157.211:1336');
-else
-	var socket = io.connect('http://127.0.0.1:1336');
 
 App.initializeSocketEvents(); // @todo socket est externe
 View.initializeEvents();
