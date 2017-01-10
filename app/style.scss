@@ -105,8 +105,13 @@ small {
 			width: auto !important; /* override draggable ui behaviour */
 			font-size: 12px; line-height: 1.25;
 
+			&.being-removed {
+				transform: scale(0);
+				opacity: 0;
+			}
+
 			&:not(.being-dragged) {
-				transition: top 0.3s, left 0.3s;
+				transition: opacity 0.15s ease-out, transform 0.15s ease-out, top 0.3s, left 0.3s;
 			}
 
 			.bit__handle {
@@ -139,7 +144,7 @@ small {
 				font-size: 12px;
 				line-height: 1.2;
 			}
-			&.focus .bit__text{
+			&.focus .bit__text, &.being-dragged .bit__text {
 				box-shadow: 0px 0px 1px rgba(0,0,0,0.2)
 			}
 

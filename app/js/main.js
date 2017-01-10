@@ -43,9 +43,9 @@ var View = {
         $('#canvas').on('mousedown', function(e) {
             if ($(e.target).is('.bit__delete')) {
                 App.clientDeletedBit({
-                    id: $(e.target).parent().data('id')
-                })
-                $(e.target).parent().remove();
+                    id: $(e.target).parent().data('id')})
+
+								thisView.delete$Bit($(e.target).parent())
                 return true;
             }
 
@@ -59,7 +59,6 @@ var View = {
             // Grid
             relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
             relY = Math.round(relY / thisView.GRID_Y) * thisView.GRID_Y
-            console.log(thisView.GRID_X);
 
             var id = Math.floor(Math.random() * 100000); // magic is happening
             thisView.appendBit({
@@ -186,8 +185,14 @@ var View = {
         });
     },
     deleteBit: function(bit) {
-        $('[data-id=' + bit.id + ']').remove();
+			this.delete$Bit($('[data-id=' + bit.id + ']')).remove();
     },
+		delete$Bit: function($bit) {
+			$bit.addClass('being-removed')
+			setTimeout(() => {
+				$bit.remove();
+			}, 500)
+		},
     tempIdIsId: function(temp_id, id) {
         $('[data-tempid=' + temp_id + ']').attr('data-id', id);
     },
