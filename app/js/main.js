@@ -14,14 +14,14 @@ var Utils = {
     setTimeoutUnique: (function() {
         var timeouts = {};
         return function(fn, interval, uniqid) {
-						if (!arguments.length) return timeouts; // lol
+            if (!arguments.length) return timeouts; // lol
             if (uniqid in timeouts)
                 clearTimeout(timeouts[uniqid]);
             timeouts[uniqid] = setTimeout(
-							() => {
-								delete timeouts[uniqid]; // when checking for pending requests
-								fn()
-							}, interval);
+                () => {
+                    delete timeouts[uniqid]; // when checking for pending requests
+                    fn()
+                }, interval);
         }
     })(),
     setTimeoutUniqueRepeatUntil: function(fn, interval, uniqid) {
@@ -39,7 +39,7 @@ var View = {
     GRID_Y: 10,
     SERVER_SEND_THROTTLE_INTERVAL: 500,
     initializeEvents: function() {
-				var thisView = this;
+        var thisView = this;
         $('#canvas').on('mousedown', function(e) {
             if ($(e.target).is('.bit__delete')) {
                 App.clientDeletedBit({
@@ -59,7 +59,7 @@ var View = {
             // Grid
             relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
             relY = Math.round(relY / thisView.GRID_Y) * thisView.GRID_Y
-						console.log(thisView.GRID_X);
+            console.log(thisView.GRID_X);
 
             var id = Math.floor(Math.random() * 100000); // magic is happening
             thisView.appendBit({
@@ -110,7 +110,7 @@ var View = {
         }
     },
     appendBit: function(bit, id, created_by_user) {
-				var thisView = this;
+        var thisView = this;
         var $bit = $($('.template-bit').html()) // or children.clone
             .css({
                 top: bit.top,
@@ -198,7 +198,7 @@ var App = new Vue({
         roomName: undefined,
         firstConnection: true,
         flags: [],
-				socket: undefined
+        socket: undefined
     },
     methods: {
         initializeSocketEvents: function() {
@@ -304,7 +304,7 @@ var App = new Vue({
             });
         },
         notSaved: function() {
-					console.log('notsaved',Object.keys(Utils.setTimeoutUnique()))
+            console.log('notsaved', Object.keys(Utils.setTimeoutUnique()))
             return Object.keys(Utils.setTimeoutUnique()).length > 0
         }
     }
