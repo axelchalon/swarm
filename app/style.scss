@@ -98,6 +98,7 @@ small {
 			background: transparent;
 			border: 0; outline: 0;
 			max-width: 320px;
+			width: auto !important; /* override draggable ui behaviour */
 			font-size: 12px; line-height: 1.25;
 
 			&:not(.being-dragged) {
