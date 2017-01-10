@@ -39,7 +39,8 @@ var View = {
     GRID_Y: 10,
     SERVER_SEND_THROTTLE_INTERVAL: 500,
     initializeEvents: function() {
-        $('#canvas').on('mousedown', (e) => {
+				var thisView = this;
+        $('#canvas').on('mousedown', function(e) {
             if ($(e.target).is('.bit__delete')) {
                 App.clientDeletedBit({
                     id: $(e.target).parent().data('id')
@@ -56,11 +57,12 @@ var View = {
             var relY = e.pageY - parentOffset.top - 5;
 
             // Grid
-            relX = Math.round(relX / this.GRID_X) * this.GRID_Xs
-            relY = Math.round(relY / this.GRID_Y) * this.GRID_Y
+            relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
+            relY = Math.round(relY / thisView.GRID_Y) * thisView.GRID_Y
+						console.log(thisView.GRID_X);
 
             var id = Math.floor(Math.random() * 100000); // magic is happening
-            this.appendBit({
+            thisView.appendBit({
                 left: relX,
                 top: relY
             }, id, true);
@@ -108,6 +110,7 @@ var View = {
         }
     },
     appendBit: function(bit, id, created_by_user) {
+				var thisView = this;
         var $bit = $($('.template-bit').html()) // or children.clone
             .css({
                 top: bit.top,
@@ -122,8 +125,8 @@ var View = {
                 containment: "parent",
                 drag: function(event, ui) {
                     var snapTolerance = $(this).draggable('option', 'snapTolerance');
-                    var topRemainder = ui.position.top % this.GRID_Y;
-                    var leftRemainder = ui.position.left % this.GRID_X;
+                    var topRemainder = ui.position.top % thisView.GRID_Y;
+                    var leftRemainder = ui.position.left % thisView.GRID_X;
 
                     if (topRemainder <= snapTolerance) {
                         ui.position.top = ui.position.top - topRemainder;
@@ -142,7 +145,6 @@ var View = {
 
                     // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
                     var uniqid = $bit.data('tempid') || $bit.data('id');
-
                     Utils.setTimeoutUniqueRepeatUntil(() => {
                         if (typeof($bit.data('id')) === 'undefined')
                             return false
@@ -151,7 +153,7 @@ var View = {
                             left: ui.position.left,
                             top: ui.position.top
                         })
-                    }, this.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
+                    }, thisView.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
                 }
             });
 
