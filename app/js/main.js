@@ -1,5 +1,17 @@
 'use strict';
 
+if ( /mobile/i.test(navigator.userAgent)) {
+  (function($) {
+      $.fn.offsetOld = $.fn.offset;
+      $.fn.offset = function() {
+        var result = this.offsetOld();
+        result.top -= window.scrollY;
+        result.left -= window.scrollX;
+        return result;
+      };
+  })(jQuery);
+}
+
 // # UTILS
 var Utils = {
     escapeAndNl2br: function(text) {
@@ -62,7 +74,10 @@ var View = {
 
             var parentOffset = $(this).offset();
 						console.log('e.pageX',e.pageX)
+						console.log('e.pageY',e.pageY)
+						console.log('parentOffset.top',parentOffset.top)
 						console.log('parentOffset.left',parentOffset.left)
+						// les quatre sont par rapport au body
             var relX = e.pageX - parentOffset.left;
             var relY = e.pageY - parentOffset.top - 5;
 
