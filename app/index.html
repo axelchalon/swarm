@@ -40,7 +40,7 @@
 
         <div id="cancel-toast" v-if="showCancelToast">
           <!-- Vous avez supprimé <em>{{cancelToastBit.text ? (cancelToastBit.text.substr(0,15) + (cancelToastBit.text.length > 15 ? '...' : '')) : '' }}</em> -->
-          <a href="#" v-on:click="onClickCancelToast()">Annuler suppression</a>
+          <a href="#" onclick="return false;" v-on:click="onClickCancelToast()">Annuler suppression</a>
         </div>
     	</div>
     </div>

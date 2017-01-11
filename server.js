@@ -39,7 +39,7 @@ console.log('CONECTION');
 	});
 
   socket.on('new', function(obj) {
-	db.insert({swarm: socket.swarm_name, top: obj.top, left: obj.left, text: ''}, function(err, newDoc) {
+	db.insert({swarm: socket.swarm_name, top: obj.top, left: obj.left, text: obj.text || ''}, function(err, newDoc) {
 		console.log('insert new');
 		socket.broadcast.to(socket.swarm_name).emit('new',{id: newDoc._id, top: newDoc.top, left: newDoc.left, text: newDoc.text});
 		socket.emit('tempIdIsId',{temp_id: obj.id, id:newDoc._id});

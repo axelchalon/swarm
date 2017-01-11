@@ -293,7 +293,8 @@ var App = new Vue({
             this.socket.on('new', (bit) => {
                 View.appendBit({
                     left: bit.left,
-                    top: bit.top
+                    top: bit.top,
+										text: bit.text || ''
                 }, bit.id)
             });
 
@@ -331,7 +332,6 @@ var App = new Vue({
 							text: this.cancelToastBit.text
 					}, id, true)
 					this.clientCreatedBit(this.cancelToastBit)
-					return false;
 				},
         clientCreatedBit: function(bit) {
             this.socket.emit('new', bit); //todo wait until edit ?

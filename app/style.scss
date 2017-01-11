@@ -157,10 +157,12 @@ small {
 		font-size: 10px;
 		line-height: 1.5;
 		background: white;
-		color: #656565;
+		color: #999;
 		text-align: right;
-		bottom: 3px;
-		right: 5px;
+		bottom: 0;
+		right: 0;
+		padding: 3px 5px;
+		border-top-left-radius: 5px;
 
 		em {
 			font-style: italic;
