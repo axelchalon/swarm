@@ -312,11 +312,12 @@ var App = new Vue({
             });
         },
         clientDeletedBit: function(bit) {
-					this.cancelToastBit = Object.assign({},bit);
-					this.showCancelToast = true;
-					console.log(this.cancelToastBit)
-					// this.showCancelToastTimeout = setTimeout(() => {
-					// 	this.showCancelToast = false; }, 5000)
+					if (bit.text) {
+						this.cancelToastBit = Object.assign({},bit);
+						this.showCancelToast = true;
+						// this.showCancelToastTimeout = setTimeout(() => {
+						//  	this.showCancelToast = false; }, 5000)
+					}
           this.socket.emit('delete', bit.id);
         },
 				onClickCancelToast: function() {

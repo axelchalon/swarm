@@ -75,25 +75,6 @@ small {
 	justify-content: center;
 	align-items: center;
 
-	div#cancel-toast {
-		position: fixed;
-		line-height: 1.5;
-		background: black;
-		color: white;
-		text-align: center;
-		bottom: 0;
-		left: 0;
-		right: 0;
-
-		em {
-			font-style: italic;
-		}
-		a {
-			text-decoration: underline;
-			color: inherit;
-		}
-	}
-
 	div#canvas {
 		width: 1024px;
 		height: 768px;
@@ -169,6 +150,28 @@ small {
 
 		}
 
+	}
+
+	div#cancel-toast {
+		position: fixed;
+		font-size: 10px;
+		line-height: 1.5;
+		background: white;
+		color: #656565;
+		text-align: right;
+		bottom: 3px;
+		right: 5px;
+
+		em {
+			font-style: italic;
+		}
+		a {
+			text-decoration: none;
+			&:hover {
+				text-decoration: underline;
+			}
+			color: inherit;
+		}
 	}
 
 }
