@@ -66,7 +66,11 @@ body {
 
 @media (max-width: 1024px) {
 	body {
+		width: 1024px; /* useless */
 		overflow-x: auto;
+		/* @todo body width expands to > 1024px when creating an element to the right
+		with this media query. solution: add some right margin (still put the banner?)
+		once we fix this, everything's good. I think */
 	}
 }
 
