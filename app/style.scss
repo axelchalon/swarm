@@ -96,6 +96,11 @@ small {
 			pointer-events: none;
 		}
 
+		&.no-internet .bit .bit__handle,
+		&.no-internet .bit .bit__delete {
+			display: none !important;
+		}
+
 		.bit {
 			display: block;
 			position: absolute;
@@ -152,7 +157,7 @@ small {
 
 	}
 
-	div#cancel-toast {
+	div#toast {
 		position: fixed;
 		font-size: 10px;
 		line-height: 1.5;
@@ -164,15 +169,21 @@ small {
 		padding: 3px 5px;
 		border-top-left-radius: 5px;
 
-		em {
-			font-style: italic;
+		#no-internet {
+			color: red;
 		}
+
 		a {
+			display: block;
 			text-decoration: none;
 			&:hover {
 				text-decoration: underline;
 			}
 			color: inherit;
+		}
+
+		em {
+			font-style: italic;
 		}
 	}
 

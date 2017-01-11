@@ -41,8 +41,10 @@ var View = {
     initializeEvents: function() {
         var thisView = this;
         $('#canvas').on('mousedown', function(e) {
+						if ($(this).hasClass('no-internet'))
+							return;
+
             if ($(e.target).is('.bit__delete')) {
-							console.log('callin cdb')
 								// issue: app contient la logique serveur & la logique vue front
                 App.clientDeletedBit({
                     id: $(e.target).parent().data('id'),
@@ -213,6 +215,9 @@ var View = {
 				var html_content = $el_with_linebreaks.html().replace(/<div>/g, "<div>\n");
 				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
 				return plaintext;
+		},
+		setReadOnly: function(e) {
+				$('.bit__text').removeAttr('contenteditable');
 		}
 }
 
@@ -223,6 +228,7 @@ var App = new Vue({
         screen: 'loading', // 'loading' | 'active' | 'error'
         roomName: undefined,
         firstConnection: true,
+				noInternet: false,
         flags: [],
         socket: undefined,
 				cancelToastBit: {},
@@ -237,7 +243,13 @@ var App = new Vue({
                 this.socket = io.connect('http://127.0.0.1:1336');
 
             this.socket.on('connect_error', (e) => {
-                this.screen = 'error'
+
+								if (this.firstConnection)
+                	this.screen = 'error'
+								else {
+									this.noInternet = true;
+									View.setReadOnly();
+								}
             });
 
             this.socket.on('connect', () => {
@@ -275,6 +287,7 @@ var App = new Vue({
 
             this.socket.on('catchUp', (bits) => {
                 console.log('CATCH UP');
+								this.noInternet = false;
                 View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
                 $.each(bits, function(i, bit) {
                     View.appendBit({

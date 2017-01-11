@@ -33,15 +33,16 @@
      	</div>
 
      	<div class="page page--swarm" v-show="screen == 'active'">
-    		<div id="canvas" v-bind:style="{ height: 'plus' in flags ? '4000px' : '768px' }">
+    		<div id="canvas" v-bind:style="{ height: 'plus' in flags ? '4000px' : '768px' }" v-bind:class="{ 'no-internet': noInternet }">
           <h1 class="swarm-name" v-show="! ('secret' in flags)">
             {{ roomName || 'swarm' }}
           </h1>
     		</div>
 
-        <div id="cancel-toast" v-if="showCancelToast">
+        <div id="toast">
           <!-- Vous avez supprimé <em>{{cancelToastBit.text ? (cancelToastBit.text.substr(0,15) + (cancelToastBit.text.length > 15 ? '...' : '')) : '' }}</em> -->
-          <a href="#" onclick="return false;" v-on:click="onClickCancelToast()">Annuler suppression</a>
+          <p id="no-internet" v-show="noInternet">Pas de connexion au serveur.</p>
+          <a href="#" v-show="!noInternet && showCancelToast" onclick="return false;" v-on:click="onClickCancelToast()">Annuler suppression</a>
         </div>
     	</div>
     </div>
