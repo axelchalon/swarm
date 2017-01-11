@@ -253,16 +253,16 @@ var App = new Vue({
             });
 
             this.socket.on('connect', () => {
-                console.log('CONNECT')
                 if (!this.firstConnection) {
+										debug('sockets')('Reconnected')
                     this.socket.emit('swarm', this.roomName);
                     return;
                 }
                 this.firstConnection = false;
+								debug('sockets')('Connected')
 
                 // The following executed only once
 
-                console.log('CONNECT :: firstTime')
                 var [_, roomName, flagsString] = window.location.href.match(/\/([^/+*]*)([+*]*)$/)
                 this.roomName = roomName;
                 this.flags = flagsString.split('').reduce((acc, flagLetter) => {
@@ -273,8 +273,9 @@ var App = new Vue({
                     if (flagLetter in assoc) acc[assoc[flagLetter]] = true;
                     return acc;
                 }, {});
-                console.log('flags : ', this.flags)
-                console.log('roomName : ', this.roomName)
+
+								debug('logic')('Room', this.roomName)
+								debug('logic')('Flags', this.flags)
 
                 this.socket.emit('swarm', this.roomName);
 
@@ -286,7 +287,7 @@ var App = new Vue({
             });
 
             this.socket.on('catchUp', (bits) => {
-                console.log('CATCH UP');
+                debug('sockets')('Catching up')
 								this.noInternet = false;
                 View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
                 $.each(bits, function(i, bit) {
@@ -337,7 +338,6 @@ var App = new Vue({
           this.socket.emit('delete', bit.id);
         },
 				onClickCancelToast: function() {
-					console.log('cancel',this.cancelToastBit)
 					this.showCancelToast = false;
 					clearTimeout(this.showCancelToastTimeout);
 					var id = Math.floor(Math.random() * 100000); // magic is happening
@@ -365,7 +365,6 @@ var App = new Vue({
             });
         },
         notSaved: function() {
-            console.log('notsaved', Object.keys(Utils.setTimeoutUnique()))
             return Object.keys(Utils.setTimeoutUnique()).length > 0
         }
     }
