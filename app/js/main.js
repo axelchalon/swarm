@@ -72,10 +72,8 @@ var View = {
             if (e.target !== this)
                 return;
 
-            var parentOffset = $(this).offset();
-						// les quatre sont par rapport au body
-            var relX = e.pageX - parentOffset.left;
-            var relY = e.pageY - parentOffset.top - 5;
+            var relX = e.pageX
+            var relY = e.pageY - 5;
 
             // Grid
             relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
@@ -148,7 +146,7 @@ var View = {
             .appendTo('#bit-holder')
             .draggable({
                 handle: ".bit__handle",
-                containment: "parent",
+                /* containment: "parent",*/
                 drag: function(event, ui) {
                     var snapTolerance = $(this).draggable('option', 'snapTolerance');
                     var topRemainder = ui.position.top % thisView.GRID_Y;
