@@ -61,30 +61,11 @@ html {
 
 body {
 	padding: 20px 0;
-	overflow-x: hidden;
-}
-
-@media (max-width: 1024px) {
-	body {
-		width: 1024px; /* useless */
-		overflow-x: auto;
-		/* @todo body width expands to > 1024px when creating an element to the right
-		with this media query. solution: add some right margin (still put the banner?)
-		once we fix this, everything's good. I think */
-	}
 }
 
 small {
 	font-size: 0.4em;
 	font-style: italic;
-}
-
-#banner {
-	position: fixed; background: white;
-	top: 0; right: 0; bottom: 0;
-	left: 1024px;
-	border-left: 1px dashed black;
-	z-index: 5;
 }
 
 .page--loading,
@@ -99,7 +80,6 @@ small {
 	min-height: 100%;
 
 	div#canvas {
-		width: 1024px;
 		background: #EEE;
 		margin: 0;
 		/* border-left: 1px dashed black; */
@@ -109,6 +89,7 @@ small {
 		top: 0px;
 		left: 0px;
 		bottom: 0px;
+		right: 0px;
 
 		.swarm-name {
 			position: fixed;
@@ -183,6 +164,11 @@ small {
 		.bit__bottomMargin {
 			position: absolute; top: 100%; left: 0; right: 0;
 			height: 40px;
+			pointer-events: none;
+		}
+		.bit__rightMargin {
+			position: absolute; left: 100%; top: 0; bottom: 0;
+			width: 40px;
 			pointer-events: none;
 		}
 
