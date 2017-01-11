@@ -59,6 +59,8 @@ var View = {
                 return;
 
             var parentOffset = $(this).offset();
+						console.log('e.pageX',e.pageX)
+						console.log('parentOffset.left',parentOffset.left)
             var relX = e.pageX - parentOffset.left;
             var relY = e.pageY - parentOffset.top - 5;
 
@@ -190,7 +192,7 @@ var View = {
         });
     },
     deleteBit: function(bit) {
-			this.delete$Bit($('[data-id=' + bit.id + ']')).remove();
+			this.delete$Bit($('[data-id=' + bit.id + ']'));
     },
 		delete$Bit: function($bit) {
 			$bit.addClass('being-removed')
