@@ -64,9 +64,23 @@ body {
 	overflow-x: hidden;
 }
 
+@media (max-width: 1024px) {
+	body {
+		overflow-x: auto;
+	}
+}
+
 small {
 	font-size: 0.4em;
 	font-style: italic;
+}
+
+#banner {
+	position: fixed; background: white;
+	top: 0; right: 0; bottom: 0;
+	left: 1024px;
+	border-left: 1px dashed black;
+	z-index: 5;
 }
 
 .page--loading,
@@ -85,7 +99,7 @@ small {
 		background: #EEE;
 		margin: 0;
 		/* border-left: 1px dashed black; */
-		border-right: 1px dashed black;
+		// border-right: 1px dashed black;
 		cursor: crosshair;
 		position: fixed;
 		top: 0px;
@@ -163,7 +177,9 @@ small {
 		}
 
 		.bit__bottomMargin {
+			position: absolute; top: 100%; left: 0; right: 0;
 			height: 40px;
+			pointer-events: none;
 		}
 
 	}
