@@ -243,10 +243,12 @@ var App = new Vue({
                 this.socket = io.connect('http://127.0.0.1:1336');
 
             this.socket.on('connect_error', (e) => {
-
-								if (this.firstConnection)
+								if (this.firstConnection) {
+									debug('sockets')('Could not connect')
                 	this.screen = 'error'
-								else {
+								}
+								else if (!this.noInternet){
+									debug('sockets')('Lost connection')
 									this.noInternet = true;
 									View.setReadOnly();
 								}
