@@ -51,6 +51,14 @@ html {
 	font-family: Verdana;
 }
 
+// iz too much
+// html {
+// 	position: absolute;
+// 	left: 50%;
+// 	transform: translateX(-512px);
+// 	overflow-x: hidden;
+// }
+
 body {
 	padding: 20px 0;
 }
@@ -79,7 +87,7 @@ small {
 		width: 1024px;
 		background: #EEE;
 		margin: 0;
-		border-left: 1px dashed black;
+		/* border-left: 1px dashed black; */
 		border-right: 1px dashed black;
 		cursor: crosshair;
 		position: fixed;
@@ -88,13 +96,12 @@ small {
 		bottom: 0px;
 
 		.swarm-name {
-			position: absolute;
 			position: fixed;
 			z-index: 0;
 			color: #CFCFCF;
 			font-size: 30px;
 			top: 50%;
-			left: 50%;
+			left: 512px;
 			transform: translateX(-50%) translateY(-50%);
 			pointer-events: none;
 		}
