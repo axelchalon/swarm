@@ -52,22 +52,26 @@ var View = {
     SERVER_SEND_THROTTLE_INTERVAL: 500,
     initializeEvents: function() {
         var thisView = this;
-        $('#canvas').on('mousedown', function(e) {
+
+				$('#bit-holder').on('mousedown','.bit__delete', function(e) {
 						if ($(this).hasClass('no-internet'))
 							return;
 
-            if ($(e.target).is('.bit__delete')) {
-								// issue: app contient la logique serveur & la logique vue front
-                App.clientDeletedBit({
-                    id: $(e.target).parent().data('id'),
-										text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
-										left: $(e.target).parent().css('left'),
-										top: $(e.target).parent().css('top')
-									})
+						// issue: app contient la logique serveur & la logique vue front
+            App.clientDeletedBit({
+                id: $(e.target).parent().data('id'),
+								text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
+								left: $(e.target).parent().css('left'),
+								top: $(e.target).parent().css('top')
+							})
 
-								thisView.delete$Bit($(e.target).parent())
-                return true;
-            }
+						thisView.delete$Bit($(e.target).parent())
+            return true;
+				});
+
+        $('#canvas').on('mousedown', function(e) {
+						if ($(this).hasClass('no-internet'))
+							return;
 
             if (e.target !== this)
                 return;
