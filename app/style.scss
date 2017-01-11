@@ -63,6 +63,18 @@ body {
 	padding: 20px 0;
 }
 
+body, html { overflow: hidden; }
+
+div#app {
+	position: fixed;
+	top: 0; right: 0; width: 1024px; bottom: 0;
+	overflow: auto;
+	border: 2px solid blue;
+
+	float: right;
+	z-index: 999;
+}
+
 small {
 	font-size: 0.4em;
 	font-style: italic;
@@ -77,23 +89,21 @@ small {
 }
 
 .page--swarm {
-	display: flex;
 	min-height: 100%;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
 
 	div#canvas {
 		width: 1024px;
 		background: #EEE;
 		margin: 0;
-		/* border-left: 1px dashed black; */
-		border-right: 1px dashed black;
+		border-left: 1px dashed black;
+		/* border-right: 1px dashed black; */
 		cursor: crosshair;
 		position: fixed;
 		top: 0px;
-		left: 0px;
+		right: 0px;
 		bottom: 0px;
+
+		bottom: 15px; top: 15px; right: 15px;
 
 		.swarm-name {
 			position: fixed;
@@ -101,8 +111,8 @@ small {
 			color: #CFCFCF;
 			font-size: 30px;
 			top: 50%;
-			left: 512px;
-			transform: translateX(-50%) translateY(-50%);
+			right: 512px;
+			transform: translateX(50%) translateY(-50%);
 			pointer-events: none;
 		}
 
