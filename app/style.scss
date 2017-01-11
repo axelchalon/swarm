@@ -61,6 +61,7 @@ html {
 
 body {
 	padding: 20px 0;
+	overflow-x: hidden;
 }
 
 small {
@@ -77,11 +78,7 @@ small {
 }
 
 .page--swarm {
-	display: flex;
 	min-height: 100%;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
 
 	div#canvas {
 		width: 1024px;
