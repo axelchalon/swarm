@@ -42,8 +42,14 @@ var View = {
         var thisView = this;
         $('#canvas').on('mousedown', function(e) {
             if ($(e.target).is('.bit__delete')) {
+							console.log('callin cdb')
+								// issue: app contient la logique serveur & la logique vue front
                 App.clientDeletedBit({
-                    id: $(e.target).parent().data('id')})
+                    id: $(e.target).parent().data('id'),
+										text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
+										left: $(e.target).parent().css('left'),
+										top: $(e.target).parent().css('top')
+									})
 
 								thisView.delete$Bit($(e.target).parent())
                 return true;
@@ -98,12 +104,10 @@ var View = {
             Utils.setTimeoutUniqueRepeatUntil(() => {
                 if (typeof($bit.data('id')) === 'undefined')
                     return false
-                var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-                var html_content = $el_with_linebreaks.html().replace(/<div>/g, "<div>\n");
-                var plaintext = jQuery(document.createElement('div')).html(html_content).text();
+
                 App.clientEditedBit({
                     id: $bit.data('id'),
-                    text: plaintext
+                    text: this.getPlaintextFrom$BitMessage($bit_message)
                 });
             }, this.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
 
@@ -152,6 +156,7 @@ var View = {
 
                     // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
                     var uniqid = $bit.data('tempid') || $bit.data('id');
+
                     Utils.setTimeoutUniqueRepeatUntil(() => {
                         if (typeof($bit.data('id')) === 'undefined')
                             return false
@@ -170,7 +175,7 @@ var View = {
         } else
             $bit.attr('data-id', id) // rather than .data() so that we can search for an id using CSS selectors
 
-        $bit.find('.bit__text').focusout(this.deleteIfEmpty);
+        $bit.find('.bit__text').focusout(this.deleteIfEmpty).html(Utils.escapeAndNl2br(bit.text || ''));
     },
     removeAllBits: function() {
         $('#canvas .bit__text').remove();
@@ -200,7 +205,13 @@ var View = {
         if ($(this).text().length < 1) {
             $(this).siblings('.bit__delete').trigger('mousedown');
         }
-    }
+    },
+		getPlaintextFrom$BitMessage: function($bit_message) {
+				var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
+				var html_content = $el_with_linebreaks.html().replace(/<div>/g, "<div>\n");
+				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
+				return plaintext;
+		}
 }
 
 // # VUE
@@ -211,7 +222,10 @@ var App = new Vue({
         roomName: undefined,
         firstConnection: true,
         flags: [],
-        socket: undefined
+        socket: undefined,
+				cancelToastBit: {},
+				showCancelToast: false,
+				showCancelToastTimeout: -1,
     },
     methods: {
         initializeSocketEvents: function() {
@@ -252,7 +266,7 @@ var App = new Vue({
 
                 if ('secret' in this.flags) {
                     window.history.pushState({}, null, '/');
-                } else {
+                } else if (this.roomName.length){
                     document.title = this.roomName + ' – SWARM';
                 }
             });
@@ -298,8 +312,26 @@ var App = new Vue({
             });
         },
         clientDeletedBit: function(bit) {
-            this.socket.emit('delete', bit.id);
+					this.cancelToastBit = Object.assign({},bit);
+					this.showCancelToast = true;
+					console.log(this.cancelToastBit)
+					// this.showCancelToastTimeout = setTimeout(() => {
+					// 	this.showCancelToast = false; }, 5000)
+          this.socket.emit('delete', bit.id);
         },
+				onClickCancelToast: function() {
+					console.log('cancel',this.cancelToastBit)
+					this.showCancelToast = false;
+					clearTimeout(this.showCancelToastTimeout);
+					var id = Math.floor(Math.random() * 100000); // magic is happening
+					View.appendBit({
+							left: this.cancelToastBit.left,
+							top: this.cancelToastBit.top,
+							text: this.cancelToastBit.text
+					}, id, true)
+					this.clientCreatedBit(this.cancelToastBit)
+					return false;
+				},
         clientCreatedBit: function(bit) {
             this.socket.emit('new', bit); //todo wait until edit ?
         },

@@ -37,6 +37,11 @@
             {{ roomName || 'swarm' }}
           </h1>
     		</div>
+
+        <div id="cancel-toast" v-if="showCancelToast">
+          Vous avez supprimé <em>{{cancelToastBit.text ? (cancelToastBit.text.substr(0,15) + (cancelToastBit.text.length > 15 ? '...' : '')) : '' }}</em>
+          <a href="#" v-on:click="onClickCancelToast()">Annuler</a>
+        </div>
     	</div>
     </div>
 
