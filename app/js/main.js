@@ -152,7 +152,7 @@ var View = {
             .appendTo('#bit-holder')
             .draggable({
                 handle: ".bit__handle",
-                containment: "parent",
+                containment: "#canvas",
                 drag: function(event, ui) {
                     var snapTolerance = $(this).draggable('option', 'snapTolerance');
                     var topRemainder = ui.position.top % thisView.GRID_Y;
