@@ -75,14 +75,18 @@ small {
 	justify-content: center;
 	align-items: center;
 
+	div#bit-holder {
+
+	}
+
 	div#canvas {
 		width: 1024px;
-		height: 768px;
 		background: #EEE;
 		margin: 0 auto;
 		border: 1px dashed black;
 		cursor: crosshair;
-		position: relative;
+		position: fixed;
+		top: 0; bottom: 0;
 
 		.swarm-name {
 			position: absolute;
@@ -96,63 +100,64 @@ small {
 			pointer-events: none;
 		}
 
-		&.no-internet .bit .bit__handle,
-		&.no-internet .bit .bit__delete {
-			display: none !important;
+	}
+
+
+	&.no-internet .bit .bit__handle,
+	&.no-internet .bit .bit__delete {
+		display: none !important;
+	}
+
+	.bit {
+		display: block;
+		position: absolute;
+		background: transparent;
+		border: 0; outline: 0;
+		max-width: 320px;
+		width: auto !important; /* override draggable ui behaviour */
+		font-size: 12px; line-height: 1.25;
+
+		&.being-removed {
+			transform: scale(0);
+			opacity: 0;
 		}
 
-		.bit {
+		&:not(.being-dragged) {
+			transition: opacity 0.15s ease-out, transform 0.15s ease-out, top 0.3s, left 0.3s;
+		}
+
+		.bit__handle {
+			display: none;
+			position: absolute; left: -5px; top: 0px; right: 0; height: 10px;
+			background: #B7B7B7;
+			cursor: move;
+		}
+
+		.bit__delete {
+			display: none;
+			position: absolute; left: -5px; top: 0px; width: 10px; height: 10px;
+			background: red;
+			cursor: pointer;
+		}
+
+		&:hover .bit__delete,
+		&:hover .bit__handle {
 			display: block;
-			position: absolute;
-			background: transparent;
-			border: 0; outline: 0;
-			max-width: 320px;
-			width: auto !important; /* override draggable ui behaviour */
-			font-size: 12px; line-height: 1.25;
+		}
 
-			&.being-removed {
-				transform: scale(0);
-				opacity: 0;
-			}
-
-			&:not(.being-dragged) {
-				transition: opacity 0.15s ease-out, transform 0.15s ease-out, top 0.3s, left 0.3s;
-			}
-
-			.bit__handle {
-				display: none;
-				position: absolute; left: -5px; top: 0px; right: 0; height: 10px;
-				background: #B7B7B7;
-				cursor: move;
-			}
-
-			.bit__delete {
-				display: none;
-				position: absolute; left: -5px; top: 0px; width: 10px; height: 10px;
-				background: red;
-				cursor: pointer;
-			}
-
-			&:hover .bit__delete,
-			&:hover .bit__handle {
-				display: block;
-			}
-
-			.bit__text {
-				background: white;
-				padding: 5px;
-				margin-top: 5px;
-				border-radius: 5px;
-				cursor: text;
-				border: 1px solid #C5C5C5;
-				outline: 0;
-				font-size: 12px;
-				line-height: 1.2;
-			}
-			&.focus .bit__text, &.being-dragged .bit__text {
-				box-shadow: 0px 0px 1px rgba(0,0,0,0.2)
-			}
-
+		.bit__text {
+			background: white;
+			padding: 5px;
+			margin-top: 5px;
+			border-radius: 5px;
+			cursor: text;
+			border: 1px solid #C5C5C5;
+			outline: 0;
+			font-size: 12px;
+			line-height: 1.2;
+		}
+		&.focus .bit__text, &.being-dragged .bit__text {
+			box-shadow: 0px 0px 1px rgba(0,0,0,0.2)
 		}
 
 	}

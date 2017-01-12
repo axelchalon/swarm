@@ -104,15 +104,15 @@ var View = {
             return false;
         });
 
-				$('#canvas').on('focus', '.bit__text', (e) => {
+				$('#bit-holder').on('focus', '.bit__text', (e) => {
 					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
 				})
 
-				$('#canvas').on('blur', '.bit__text', (e) => {
+				$('#bit-holder').on('blur', '.bit__text', (e) => {
 					$(e.target).closest('.bit').css('z-index','auto').removeClass('focus')
 				})
 
-        $('#canvas').on('input', '.bit__text', (e) => {
+        $('#bit-holder').on('input', '.bit__text', (e) => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
             var $bit = $bit_message.closest('.bit')
@@ -149,7 +149,7 @@ var View = {
             .find('.bit__text')
             .html(Utils.escapeAndNl2br(bit.text || ''))
             .end()
-            .appendTo('#canvas')
+            .appendTo('#bit-holder')
             .draggable({
                 handle: ".bit__handle",
                 containment: "parent",
@@ -197,7 +197,7 @@ var View = {
         $bit.find('.bit__text').focusout(this.deleteIfEmpty).html(Utils.escapeAndNl2br(bit.text || ''));
     },
     removeAllBits: function() {
-        $('#canvas .bit__text').remove();
+        $('#bit-holder .bit__text').remove();
     },
     editBit: function(bit) {
         $('[data-id=' + bit.id + '] .bit__text').html(Utils.escapeAndNl2br(bit.text));
