@@ -291,7 +291,6 @@ var App = new Vue({
                     if (flagLetter in assoc) acc[assoc[flagLetter]] = true;
                     return acc;
                 }, {});
-
 								debug('logic')('Room', this.roomName)
 								debug('logic')('Flags', this.flags)
 

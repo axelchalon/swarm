@@ -43,6 +43,10 @@ table {
 
 /* --- */
 
+body {
+	background: url("https://subtlepatterns.com/wp-content/themes/tweaker7/images/transp_bg.png");
+}
+
 html {
 	overflow-x: hidden;
 }
@@ -78,15 +82,14 @@ small {
 	div#bit-holder {
 		width: 1024px;
 		position: relative;
-		/* pourquoi ça centre ? */
 	}
 
 	div#canvas {
 		width: 1024px;
 		background: #EEE;
-		margin: 0 auto;
 		border: 1px dashed black;
 		border-top: 0; border-bottom: 0;
+		margin: 0 auto;
 		cursor: crosshair;
 		position: fixed;
 		top: 0; bottom: -1000px; /* allows for dragging bits below the bottom edge */
