@@ -44,7 +44,7 @@ table {
 /* --- */
 
 html {
-	/* overflow-x: hidden; */
+	overflow-x: hidden;
 }
 
 body,
@@ -86,6 +86,7 @@ small {
 		background: #EEE;
 		margin: 0 auto;
 		border: 1px dashed black;
+		border-top: 0; border-bottom: 0;
 		cursor: crosshair;
 		position: fixed;
 		top: 0; bottom: -1000px; /* allows for dragging bits below the bottom edge */
