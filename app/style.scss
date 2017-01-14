@@ -43,16 +43,16 @@ table {
 
 /* --- */
 
+html {
+	/* overflow-x: hidden; */
+}
+
 body,
 html {
 	width: 100%;
 	min-height: 100%;
 	line-height: 1.25;
 	font-family: Verdana;
-}
-
-body {
-	padding: 20px 0;
 }
 
 small {
@@ -76,7 +76,9 @@ small {
 	align-items: center;
 
 	div#bit-holder {
-
+		width: 1024px;
+		position: relative;
+		/* pourquoi ça centre ? */
 	}
 
 	div#canvas {
@@ -86,7 +88,7 @@ small {
 		border: 1px dashed black;
 		cursor: crosshair;
 		position: fixed;
-		top: 0; bottom: 0;
+		top: 0; bottom: -1000px; /* allows for dragging bits below the bottom edge */
 
 		.swarm-name {
 			position: absolute;
@@ -158,6 +160,12 @@ small {
 		}
 		&.focus .bit__text, &.being-dragged .bit__text {
 			box-shadow: 0px 0px 1px rgba(0,0,0,0.2)
+		}
+
+		.bit__bottom-margin {
+			position: absolute; top: 100%; left: 0; right: 0;
+			height: 40px;
+			pointer-events: none;
 		}
 
 	}

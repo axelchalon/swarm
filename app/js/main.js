@@ -52,22 +52,23 @@ var View = {
     SERVER_SEND_THROTTLE_INTERVAL: 500,
     initializeEvents: function() {
         var thisView = this;
+
+        $('#bit-holder').on('mousedown', '.bit__delete', function(e) {
+            // issue: app contient la logique serveur & la logique vue front
+            App.clientDeletedBit({
+                id: $(e.target).parent().data('id'),
+                text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
+                left: $(e.target).parent().css('left'),
+                top: $(e.target).parent().css('top')
+              })
+
+            thisView.delete$Bit($(e.target).parent())
+            return true;
+        })
+
         $('#canvas').on('mousedown', function(e) {
 						if ($(this).hasClass('no-internet'))
 							return;
-
-            if ($(e.target).is('.bit__delete')) {
-								// issue: app contient la logique serveur & la logique vue front
-                App.clientDeletedBit({
-                    id: $(e.target).parent().data('id'),
-										text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
-										left: $(e.target).parent().css('left'),
-										top: $(e.target).parent().css('top')
-									})
-
-								thisView.delete$Bit($(e.target).parent())
-                return true;
-            }
 
             if (e.target !== this)
                 return;
@@ -79,7 +80,7 @@ var View = {
 						console.log('parentOffset.left',parentOffset.left)
 						// les quatre sont par rapport au body
             var relX = e.pageX - parentOffset.left;
-            var relY = e.pageY - parentOffset.top - 5;
+            var relY = e.pageY // - parentOffset.top - 5;
 
             // Grid
             relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
