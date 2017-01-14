@@ -47,8 +47,10 @@ body {
 	background: url("https://subtlepatterns.com/wp-content/themes/tweaker7/images/transp_bg.png");
 }
 
-html {
-	overflow-x: hidden;
+@media (min-width: 1024px) {
+	html {
+		overflow-x: hidden;
+	}
 }
 
 body,
