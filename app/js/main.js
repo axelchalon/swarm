@@ -153,7 +153,7 @@ var View = {
             .appendTo('#bit-holder')
             .draggable({
                 handle: ".bit__handle",
-                containment: "#canvas",
+                // containment: "#canvas",
                 drag: function(event, ui) {
                     var snapTolerance = $(this).draggable('option', 'snapTolerance');
                     var topRemainder = ui.position.top % thisView.GRID_Y;
@@ -166,6 +166,15 @@ var View = {
                     if (leftRemainder <= snapTolerance) {
                         ui.position.left = ui.position.left - leftRemainder;
                     }
+
+                    if (ui.position.left < snapTolerance/2)
+                      ui.position.left = snapTolerance/2;
+
+                    if (ui.position.left + $(this).width() + snapTolerance/2 > 1024)
+                      ui.position.left = 1024 - $(this).width() - snapTolerance/2;
+
+                    if (ui.position.top < 0)
+                      ui.position.top = 0;
                 },
                 start: function(e) {
                     $(this).addClass('being-dragged');
@@ -253,7 +262,7 @@ var App = new Vue({
     },
     methods: {
         initializeSocketEvents: function() {
-            if (location.hostname == 'swarm.ovh')
+            if (location.hostname == 'swarm.ovh' || 1)
                 this.socket = io.connect('http://141.138.157.211:1336');
             else
                 this.socket = io.connect('http://127.0.0.1:1336');
@@ -291,6 +300,7 @@ var App = new Vue({
                     if (flagLetter in assoc) acc[assoc[flagLetter]] = true;
                     return acc;
                 }, {});
+                this.roomName = "xaxeltodo"
 								debug('logic')('Room', this.roomName)
 								debug('logic')('Flags', this.flags)
 
