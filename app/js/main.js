@@ -74,11 +74,6 @@ var View = {
                 return;
 
             var parentOffset = $(this).offset();
-						console.log('e.pageX',e.pageX)
-						console.log('e.pageY',e.pageY)
-						console.log('parentOffset.top',parentOffset.top)
-						console.log('parentOffset.left',parentOffset.left)
-						// les quatre sont par rapport au body
             var relX = e.pageX - parentOffset.left;
             var relY = e.pageY // - parentOffset.top - 5;
 
@@ -300,7 +295,6 @@ var App = new Vue({
                     if (flagLetter in assoc) acc[assoc[flagLetter]] = true;
                     return acc;
                 }, {});
-                this.roomName = "xaxeltodo"
 								debug('logic')('Room', this.roomName)
 								debug('logic')('Flags', this.flags)
 
