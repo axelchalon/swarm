@@ -52,34 +52,30 @@ var View = {
     SERVER_SEND_THROTTLE_INTERVAL: 500,
     initializeEvents: function() {
         var thisView = this;
+
+        $('#bit-holder').on('mousedown', '.bit__delete', function(e) {
+            // issue: app contient la logique serveur & la logique vue front
+            App.clientDeletedBit({
+                id: $(e.target).parent().data('id'),
+                text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
+                left: $(e.target).parent().css('left'),
+                top: $(e.target).parent().css('top')
+              })
+
+            thisView.delete$Bit($(e.target).parent())
+            return true;
+        })
+
         $('#canvas').on('mousedown', function(e) {
 						if ($(this).hasClass('no-internet'))
 							return;
-
-            if ($(e.target).is('.bit__delete')) {
-								// issue: app contient la logique serveur & la logique vue front
-                App.clientDeletedBit({
-                    id: $(e.target).parent().data('id'),
-										text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
-										left: $(e.target).parent().css('left'),
-										top: $(e.target).parent().css('top')
-									})
-
-								thisView.delete$Bit($(e.target).parent())
-                return true;
-            }
 
             if (e.target !== this)
                 return;
 
             var parentOffset = $(this).offset();
-						console.log('e.pageX',e.pageX)
-						console.log('e.pageY',e.pageY)
-						console.log('parentOffset.top',parentOffset.top)
-						console.log('parentOffset.left',parentOffset.left)
-						// les quatre sont par rapport au body
             var relX = e.pageX - parentOffset.left;
-            var relY = e.pageY - parentOffset.top - 5;
+            var relY = e.pageY // - parentOffset.top - 5;
 
             // Grid
             relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
@@ -104,15 +100,15 @@ var View = {
             return false;
         });
 
-				$('#canvas').on('focus', '.bit__text', (e) => {
+				$('#bit-holder').on('focus', '.bit__text', (e) => {
 					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
 				})
 
-				$('#canvas').on('blur', '.bit__text', (e) => {
+				$('#bit-holder').on('blur', '.bit__text', (e) => {
 					$(e.target).closest('.bit').css('z-index','auto').removeClass('focus')
 				})
 
-        $('#canvas').on('input', '.bit__text', (e) => {
+        $('#bit-holder').on('input', '.bit__text', (e) => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
             var $bit = $bit_message.closest('.bit')
@@ -149,10 +145,10 @@ var View = {
             .find('.bit__text')
             .html(Utils.escapeAndNl2br(bit.text || ''))
             .end()
-            .appendTo('#canvas')
+            .appendTo('#bit-holder')
             .draggable({
                 handle: ".bit__handle",
-                containment: "parent",
+                // containment: "#canvas",
                 drag: function(event, ui) {
                     var snapTolerance = $(this).draggable('option', 'snapTolerance');
                     var topRemainder = ui.position.top % thisView.GRID_Y;
@@ -165,6 +161,15 @@ var View = {
                     if (leftRemainder <= snapTolerance) {
                         ui.position.left = ui.position.left - leftRemainder;
                     }
+
+                    if (ui.position.left < snapTolerance/2)
+                      ui.position.left = snapTolerance/2;
+
+                    if (ui.position.left + $(this).width() + snapTolerance/2 > 1024)
+                      ui.position.left = 1024 - $(this).width() - snapTolerance/2;
+
+                    if (ui.position.top < 0)
+                      ui.position.top = 0;
                 },
                 start: function(e) {
                     $(this).addClass('being-dragged');
@@ -197,7 +202,7 @@ var View = {
         $bit.find('.bit__text').focusout(this.deleteIfEmpty).html(Utils.escapeAndNl2br(bit.text || ''));
     },
     removeAllBits: function() {
-        $('#canvas .bit__text').remove();
+        $('#bit-holder .bit__text').remove();
     },
     editBit: function(bit) {
         $('[data-id=' + bit.id + '] .bit__text').html(Utils.escapeAndNl2br(bit.text));
@@ -252,7 +257,7 @@ var App = new Vue({
     },
     methods: {
         initializeSocketEvents: function() {
-            if (location.hostname == 'swarm.ovh')
+            if (location.hostname == 'swarm.ovh' || 1)
                 this.socket = io.connect('http://141.138.157.211:1336');
             else
                 this.socket = io.connect('http://127.0.0.1:1336');
@@ -290,7 +295,6 @@ var App = new Vue({
                     if (flagLetter in assoc) acc[assoc[flagLetter]] = true;
                     return acc;
                 }, {});
-
 								debug('logic')('Room', this.roomName)
 								debug('logic')('Flags', this.flags)
 
