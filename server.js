@@ -13,16 +13,31 @@ var app = http.createServer(function(req, res) {
 // Socket.io server listens to our app
 var io = require('socket.io').listen(app);
 
+//todo reactive
+//user leave => updatecount => broadcast
+
 console.log('listening');
 // Emit welcome message on connection
 io.sockets.on('connection', function(socket) {
-console.log('CONECTION');
+
+	console.log('CONECTION');
+
+	var roomsJoinedBySocket = [];
+
+	socket.on('disconnect', function() {
+	       roomsJoinedBySocket.forEach(room => {
+	           io.sockets.adapter.rooms[room] &&
+						 io.to(room).emit('connectedUsersCount',io.sockets.adapter.rooms[room].length)
+	       });
+	});
+
 	socket.on('swarm', function(swarm_name) {
 		console.log('SWARM');
 		if (swarm_name.length == 0) swarm_name = '/';
 		swarm_name = swarm_name.toLowerCase();
 		socket.swarm_name = swarm_name;
-		socket.join(swarm_name);
+		socket.join(swarm_name); roomsJoinedBySocket.push(swarm_name);
+		io.to(swarm_name).emit('connectedUsersCount',io.sockets.adapter.rooms[swarm_name].length)
 
 		db.find({swarm: swarm_name}, function (err, docs) {
 			if (err)

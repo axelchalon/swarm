@@ -267,10 +267,11 @@ var App = new Vue({
 				cancelToastBit: {},
 				showCancelToast: false,
 				showCancelToastTimeout: -1,
+        connectedUsersCount: 0,
     },
     methods: {
         initializeSocketEvents: function() {
-            if (location.hostname == 'swarm.ovh' || 1)
+            if (location.hostname == 'swarm.ovh')
                 this.socket = io.connect('http://141.138.157.211:1336');
             else
                 this.socket = io.connect('http://127.0.0.1:1336');
@@ -318,6 +319,10 @@ var App = new Vue({
                 } else if (this.roomName.length){
                     document.title = this.roomName + ' – SWARM';
                 }
+            });
+
+            this.socket.on('connectedUsersCount', (count) => {
+              this.connectedUsersCount = count;
             });
 
             this.socket.on('catchUp', (bits) => {

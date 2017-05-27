@@ -177,6 +177,18 @@ small {
 
 	}
 
+	div#microwave {
+		position: fixed;
+		font-size: 10px;
+		line-height: 1.5;
+		background: white;
+		color: #999;
+		bottom: 0;
+		left: 0;
+		padding: 3px 5px;
+		border-top-left-radius: 5px;
+	}
+
 	div#toast {
 		position: fixed;
 		font-size: 10px;
