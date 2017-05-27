@@ -1,7 +1,4 @@
-Swarm is a public online whiteboard. See it in action at http://swarm.ovh
-
-# TODO
-See "issues" on GitHub.
+Swarm is a public online whiteboard. See it live at http://swarm.ovh
 
 # Installation (production)
 - npm install
@@ -12,6 +9,3 @@ See "issues" on GitHub.
 - npm install
 - npm run scssw
 - node server.js
-
-# Contributing
-Pull requests are welcome! Feel free to contribute! 
