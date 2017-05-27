@@ -108,6 +108,19 @@ var View = {
 					$(e.target).closest('.bit').css('z-index','auto').removeClass('focus')
 				})
 
+        // Prevent from pasting formatted text
+        $('#bit-holder').on('paste', '.bit__text', ($e) => {
+          var e = $e.originalEvent;
+          var text = "";
+          if (e.clipboardData && e.clipboardData.getData) {
+            text = e.clipboardData.getData("text/plain");
+          } else if (window.clipboardData && window.clipboardData.getData) {
+            text = window.clipboardData.getData("Text");
+          }
+          e.preventDefault();
+          document.execCommand("insertHTML" , false, text);
+        });
+
         $('#bit-holder').on('input', '.bit__text', (e) => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
