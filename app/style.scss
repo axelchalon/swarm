@@ -75,11 +75,15 @@ small {
 }
 
 .page--swarm {
-	display: flex;
 	min-height: 100%;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
+    
+    /* Only center in big enough resolutions */
+    @media (min-width: 1024px) {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
 
 	div#bit-holder {
 		width: 1024px;
@@ -91,7 +95,14 @@ small {
 		background: #EEE;
 		border: 1px dashed black;
 		border-top: 0; border-bottom: 0;
-		margin: 0 auto;
+		margin: 0;
+        
+        /* Only center in big enough resolutions */
+        @media (min-width: 1024px) {
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
 		cursor: crosshair;
 		position: fixed;
 		top: 0; bottom: -1000px; /* allows for dragging bits below the bottom edge */
