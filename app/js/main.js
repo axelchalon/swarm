@@ -48,8 +48,49 @@ var Utils = {
 // # VIEW UTILS (needs UTILS)
 var View = {
     GRID_X: 10,
-    GRID_Y: 10,
+    GRID_Y: 14,
     SERVER_SEND_THROTTLE_INTERVAL: 500,
+    get$BitsAdjacentTo$Bit: function($bit,actualHeight) { // get bits to the left, right and bottom
+
+      var refTop = parseInt($bit[0].style.top);
+      var refLeft = parseInt($bit[0].style.left);
+      var refBottom = refTop + (actualHeight || $bit.height());
+      var refRight = refLeft + $bit.width();
+
+      var adjacent$Bits = [];
+      var thisView = this;
+      $('.bit').each(function() {
+
+        if ($(this).is($bit)) return;
+
+        var top = parseInt($(this)[0].style.top);
+        var left = parseInt($(this)[0].style.left);
+        var bottom = top + $(this).height();
+        var right = left + $(this).width();
+
+        if (bottom == top) return; // null height
+
+        var boundaries = [
+          {y: [refBottom,refBottom+4*thisView.GRID_Y], x: [refLeft-4*thisView.GRID_X,refLeft+4*thisView.GRID_X]}, // down
+          // {y: [refTop,refBottom], x: [refLeft-4*thisView.GRID_X-$(this).width(),refLeft]}, // left
+          // {y: [refTop,refBottom], x: [refRight,refRight+4*thisView.GRID_X]} // right
+        ];
+
+        var bitIsInBoundary = (boundary) =>
+              top >= boundary.y[0] && top <= boundary.y[1] &&
+              left >= boundary.x[0] && left <= boundary.x[1]
+        if (boundaries.some(bitIsInBoundary))
+          adjacent$Bits.push($(this)); // {id: $(this).attr('data-id')})
+      });
+
+      var result =
+        adjacent$Bits.concat(
+        adjacent$Bits.map(this.get$BitsAdjacentTo$Bit.bind(this)).reduce((acc, cur) => acc.concat(cur), [])
+        )
+      .filter((v, i, a) => a.indexOf(v) === i); // uniquify
+
+      return result;
+    },
     initializeEvents: function() {
         var thisView = this;
 
@@ -101,12 +142,16 @@ var View = {
         });
 
 				$('#bit-holder').on('focus', '.bit__text', (e) => {
+          cascadeMemory.$bit = $(e.target).closest('.bit');
+          cascadeMemory.height = $(e.target).closest('.bit').height();
 					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
 				})
 
 				$('#bit-holder').on('blur', '.bit__text', (e) => {
-					$(e.target).closest('.bit').css('z-index','auto').removeClass('focus')
+					$(e.target).closest('.bit').css('z-index','').removeClass('focus')
 				})
+
+        var cascadeMemory = {$bit: $(''), initialHeight: 0}
 
         // Prevent from pasting formatted text
         $('#bit-holder').on('paste', '.bit__text', ($e) => {
@@ -119,6 +164,21 @@ var View = {
           }
           e.preventDefault();
           document.execCommand("insertHTML" , false, text);
+        });
+
+        $('#bit-holder').on('keyup', '.bit__text', (e) => {
+          var $bit = $(e.target).closest('.bit');
+          if (cascadeMemory.$bit.is($bit) // security check
+            && cascadeMemory.height != $bit.height()) {
+              console.log('bit height',$bit.height(),'& cascadememory height',cascadeMemory.height)
+              var difference = $bit.height() - cascadeMemory.height;
+              var oldHeight = cascadeMemory.height;
+              cascadeMemory.height = $bit.height()
+              debug('cascade')('Detected change in bit height',difference)
+              this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit'),oldHeight).forEach(function($el) {
+                $el.css('top',parseInt($el[0].style.top)+difference + 'px');
+              })
+            }
         });
 
         $('#bit-holder').on('input', '.bit__text', (e) => {
@@ -271,7 +331,7 @@ var App = new Vue({
     },
     methods: {
         initializeSocketEvents: function() {
-            if (location.hostname == 'swarm.ovh')
+            if (location.hostname == 'swarm.ovh' || 1)
                 this.socket = io.connect('http://141.138.157.211:1336');
             else
                 this.socket = io.connect('http://127.0.0.1:1336');

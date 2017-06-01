@@ -76,7 +76,7 @@ small {
 
 .page--swarm {
 	min-height: 100%;
-    
+
     /* Only center in big enough resolutions */
     @media (min-width: 1024px) {
         display: flex;
@@ -96,13 +96,13 @@ small {
 		border: 1px dashed black;
 		border-top: 0; border-bottom: 0;
 		margin: 0;
-        
+
         /* Only center in big enough resolutions */
         @media (min-width: 1024px) {
             margin-left: auto;
             margin-right: auto;
         }
-        
+
 		cursor: crosshair;
 		position: fixed;
 		top: 0; bottom: -1000px; /* allows for dragging bits below the bottom edge */
@@ -148,27 +148,30 @@ small {
 
 		.bit__handle {
 			display: none;
-			position: absolute; left: -5px; top: 0px; right: 0; height: 10px;
+			position: absolute; left: -5px; top: -5px; right: 0; height: 10px;
 			background: #B7B7B7;
 			cursor: move;
 		}
 
 		.bit__delete {
 			display: none;
-			position: absolute; left: -5px; top: 0px; width: 10px; height: 10px;
+			position: absolute; left: -5px; top: -5px; width: 10px; height: 10px;
 			background: red;
 			cursor: pointer;
 		}
 
-		&:hover .bit__delete,
-		&:hover .bit__handle {
-			display: block;
+		&:hover {
+			z-index: 1;
+
+			.bit__delete,
+			.bit__handle {
+				display: block;
+			}
 		}
 
 		.bit__text {
 			background: white;
 			padding: 5px;
-			margin-top: 5px;
 			border-radius: 5px;
 			cursor: text;
 			border: 1px solid #C5C5C5;
