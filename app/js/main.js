@@ -50,13 +50,13 @@ var View = {
     GRID_X: 10,
     GRID_Y: 14,
     SERVER_SEND_THROTTLE_INTERVAL: 500,
-    get$BitsAdjacentTo$Bit: function($bit) { // get bits to the left, right and bottom
+    get$BitsAdjacentTo$Bit: function($bit,actualHeight) { // get bits to the left, right and bottom
+
       var refTop = parseInt($bit.css('top'));
       var refLeft = parseInt($bit.css('left'));
-      var refBottom = refTop + $bit.height();
+      var refBottom = refTop + (actualHeight || $bit.height());
       var refRight = refLeft + $bit.width();
 
-      console.log(refTop,refLeft,refBottom,refRight)
       var adjacent$Bits = [];
       var thisView = this;
       $('.bit').each(function() {
@@ -142,18 +142,16 @@ var View = {
         });
 
 				$('#bit-holder').on('focus', '.bit__text', (e) => {
+          cascadeMemory.$bit = $(e.target).closest('.bit');
+          cascadeMemory.height = $(e.target).closest('.bit').height();
 					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
-
-          $('.bit').css('outline','')
-          // console.log(this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit')));
-          this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit')).forEach(function($el) {
-            $el.css('outline','3px solid blue')
-          })
 				})
 
 				$('#bit-holder').on('blur', '.bit__text', (e) => {
 					$(e.target).closest('.bit').css('z-index','').removeClass('focus')
 				})
+
+        var cascadeMemory = {$bit: $(''), initialHeight: 0}
 
         // Prevent from pasting formatted text
         $('#bit-holder').on('paste', '.bit__text', ($e) => {
@@ -166,6 +164,21 @@ var View = {
           }
           e.preventDefault();
           document.execCommand("insertHTML" , false, text);
+        });
+
+        $('#bit-holder').on('keyup', '.bit__text', (e) => {
+          var $bit = $(e.target).closest('.bit');
+          if (cascadeMemory.$bit.is($bit) // security check
+            && cascadeMemory.height != $bit.height()) {
+              console.log('bit height',$bit.height(),'& cascadememory height',cascadeMemory.height)
+              var difference = $bit.height() - cascadeMemory.height;
+              var oldHeight = cascadeMemory.height;
+              cascadeMemory.height = $bit.height()
+              debug('cascade')('Detected change in bit height',difference)
+              this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit'),oldHeight).forEach(function($el) {
+                $el.css('top',parseInt($el.css('top'))+difference + 'px');
+              })
+            }
         });
 
         $('#bit-holder').on('input', '.bit__text', (e) => {
