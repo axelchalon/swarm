@@ -48,8 +48,49 @@ var Utils = {
 // # VIEW UTILS (needs UTILS)
 var View = {
     GRID_X: 10,
-    GRID_Y: 10,
+    GRID_Y: 14,
     SERVER_SEND_THROTTLE_INTERVAL: 500,
+    get$BitsAdjacentTo$Bit: function($bit) { // get bits to the left, right and bottom
+      var refTop = parseInt($bit.css('top'));
+      var refLeft = parseInt($bit.css('left'));
+      var refBottom = refTop + $bit.height();
+      var refRight = refLeft + $bit.width();
+
+      console.log(refTop,refLeft,refBottom,refRight)
+      var adjacent$Bits = [];
+      var thisView = this;
+      $('.bit').each(function() {
+
+        if ($(this).is($bit)) return;
+
+        var top = parseInt($(this).css('top'));
+        var left = parseInt($(this).css('left'));
+        var bottom = top + $(this).height();
+        var right = left + $(this).width();
+
+        if (bottom == top) return; // null height
+
+        var boundaries = [
+          {y: [refBottom,refBottom+4*thisView.GRID_Y], x: [refLeft-4*thisView.GRID_X,refLeft+4*thisView.GRID_X]}, // down
+          // {y: [refTop,refBottom], x: [refLeft-4*thisView.GRID_X-$(this).width(),refLeft]}, // left
+          // {y: [refTop,refBottom], x: [refRight,refRight+4*thisView.GRID_X]} // right
+        ];
+
+        var bitIsInBoundary = (boundary) =>
+              top >= boundary.y[0] && top <= boundary.y[1] &&
+              left >= boundary.x[0] && left <= boundary.x[1]
+        if (boundaries.some(bitIsInBoundary))
+          adjacent$Bits.push($(this)); // {id: $(this).attr('data-id')})
+      });
+
+      var result =
+        adjacent$Bits.concat(
+        adjacent$Bits.map(this.get$BitsAdjacentTo$Bit.bind(this)).reduce((acc, cur) => acc.concat(cur), [])
+        )
+      .filter((v, i, a) => a.indexOf(v) === i); // uniquify
+
+      return result;
+    },
     initializeEvents: function() {
         var thisView = this;
 
@@ -102,10 +143,16 @@ var View = {
 
 				$('#bit-holder').on('focus', '.bit__text', (e) => {
 					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
+
+          $('.bit').css('outline','')
+          // console.log(this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit')));
+          this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit')).forEach(function($el) {
+            $el.css('outline','3px solid blue')
+          })
 				})
 
 				$('#bit-holder').on('blur', '.bit__text', (e) => {
-					$(e.target).closest('.bit').css('z-index','auto').removeClass('focus')
+					$(e.target).closest('.bit').css('z-index','').removeClass('focus')
 				})
 
         // Prevent from pasting formatted text
@@ -271,7 +318,7 @@ var App = new Vue({
     },
     methods: {
         initializeSocketEvents: function() {
-            if (location.hostname == 'swarm.ovh')
+            if (location.hostname == 'swarm.ovh' || 1)
                 this.socket = io.connect('http://141.138.157.211:1336');
             else
                 this.socket = io.connect('http://127.0.0.1:1336');
