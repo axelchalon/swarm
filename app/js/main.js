@@ -162,6 +162,7 @@ var View = {
           } else if (window.clipboardData && window.clipboardData.getData) {
             text = window.clipboardData.getData("Text");
           }
+          text = text.replace(/\n/g,"<br>");
           e.preventDefault();
           document.execCommand("insertHTML" , false, text);
         });
