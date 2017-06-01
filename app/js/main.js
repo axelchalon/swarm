@@ -52,8 +52,8 @@ var View = {
     SERVER_SEND_THROTTLE_INTERVAL: 500,
     get$BitsAdjacentTo$Bit: function($bit,actualHeight) { // get bits to the left, right and bottom
 
-      var refTop = parseInt($bit.css('top'));
-      var refLeft = parseInt($bit.css('left'));
+      var refTop = parseInt($bit[0].style.top);
+      var refLeft = parseInt($bit[0].style.left);
       var refBottom = refTop + (actualHeight || $bit.height());
       var refRight = refLeft + $bit.width();
 
@@ -63,8 +63,8 @@ var View = {
 
         if ($(this).is($bit)) return;
 
-        var top = parseInt($(this).css('top'));
-        var left = parseInt($(this).css('left'));
+        var top = parseInt($(this)[0].style.top);
+        var left = parseInt($(this)[0].style.left);
         var bottom = top + $(this).height();
         var right = left + $(this).width();
 
@@ -176,7 +176,7 @@ var View = {
               cascadeMemory.height = $bit.height()
               debug('cascade')('Detected change in bit height',difference)
               this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit'),oldHeight).forEach(function($el) {
-                $el.css('top',parseInt($el.css('top'))+difference + 'px');
+                $el.css('top',parseInt($el[0].style.top)+difference + 'px');
               })
             }
         });
