@@ -176,7 +176,13 @@ var View = {
               cascadeMemory.height = $bit.height()
               debug('cascade')('Detected change in bit height',difference)
               this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit'),oldHeight).forEach(function($el) {
-                $el.css('top',parseInt($el[0].style.top)+difference + 'px');
+                var newY = parseInt($el[0].style.top)+difference;
+                $el.css('top', newY + 'px');
+                App.clientMovedBit({
+                  id: $el.attr('data-id'),
+                  top: newY,
+                  left: $el[0].style.left
+                })
               })
             }
         });
