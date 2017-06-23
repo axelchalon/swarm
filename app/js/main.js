@@ -188,6 +188,37 @@ var View = {
             }
         });
 
+        $('#bit-holder').on('keydown', '.bit__text', (e) => {
+          var $bit = $(e.target).closest('.bit');
+          if (e.altKey && e.keyCode >= 37 && e.keyCode <= 40) {
+
+            if ($bit.attr('data-id')) {
+              var newX = parseInt($bit[0].style.left);
+              var newY = parseInt($bit[0].style.top);
+
+              if (e.keyCode == 37) // left
+                newX -= this.GRID_X;
+              else if (e.keyCode == 38) // up
+                newY -= this.GRID_Y;
+              else if (e.keyCode == 39) // right
+                newX += this.GRID_X;
+              else if (e.keyCode == 40) // down
+                newY += this.GRID_Y;
+
+              $bit.css('left', newX + 'px');
+              $bit.css('top', newY + 'px');
+              App.clientMovedBit({
+                id: $bit.attr('data-id'),
+                top: newY,
+                left: newX
+              })
+            }
+            
+            // possible de call cascade
+            e.preventDefault();
+          }
+        });
+
         $('#bit-holder').on('input', '.bit__text', (e) => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
