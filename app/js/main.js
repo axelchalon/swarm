@@ -188,11 +188,11 @@ var View = {
             }
         });
 
-        $('#bit-holder').on('keydown', '.bit__text', (e) => {
-          var $bit = $(e.target).closest('.bit');
+        $(document).on('keydown', (e) => {
           if (e.altKey && e.keyCode >= 37 && e.keyCode <= 40) {
 
-            if ($bit.attr('data-id')) {
+            var $bit = $(e.target).is('.bit__text') && $(e.target).closest('.bit');
+            if ($bit && $bit.attr('data-id')) {
               var newX = parseInt($bit[0].style.left);
               var newY = parseInt($bit[0].style.top);
 
@@ -213,7 +213,7 @@ var View = {
                 left: newX
               })
             }
-            
+
             // possible de call cascade
             e.preventDefault();
           }
