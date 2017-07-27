@@ -42,6 +42,45 @@ var Utils = {
                 this.setTimeoutUnique(fn_, interval, uniqid)
         }
         this.setTimeoutUnique(fn_, interval, uniqid)
+    },
+    getOt: function(from,to) {
+        var dmp = new diff_match_patch();
+        var steps = dmp.diff_main(from,to);
+        var ot_steps = [];
+            
+        var n = 0;
+        for (var i = 0; i<steps.length; i++) {
+            switch (steps[i][0]) {
+                case DIFF_EQUAL:
+                    n += steps[i][1].length;
+                    break;
+                case DIFF_INSERT:
+                    ot_steps.push([n,"insert",steps[i][1]]);
+                    n += steps[i][1].length;
+                    break;
+                case DIFF_DELETE:
+                    ot_steps.push([n,"remove",steps[i][1].length]);
+                    break;
+            }
+        }
+        
+        return ot_steps;
+        
+        // rust is better
+        // get structs etc :D cf enum microlib cf data structures js
+        
+        /*
+        test
+        
+        hello
+        heAlluX!
+        [2,"insert","A"]
+        [5,"remove",1]
+        [5,"insert","uX"]
+        
+        console.log(Utils.getOt("hello","heAlluX"),Utils.getOt("hello","heAlluX").toString() == [[2,"insert","A"], [5,"remove",1], [5,"insert","uX"]].toString())
+        */
+        
     }
 };
 
@@ -316,6 +355,11 @@ var View = {
         $('#bit-holder .bit__text').remove();
     },
     editBit: function(bit) {
+        
+        
+        console.log("old",$('[data-id=' + bit.id + '] .bit__text').html());
+        console.log("new",Utils.escapeAndNl2br(bit.text));
+        
         $('[data-id=' + bit.id + '] .bit__text').html(Utils.escapeAndNl2br(bit.text));
     },
     moveBit: function(bit) {
