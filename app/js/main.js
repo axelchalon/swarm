@@ -23,6 +23,10 @@ var Utils = {
         }
         return htmls.join("<br>");
     },
+    escape: function(text) {
+        var tmpDiv = jQuery(document.createElement('div'));
+        return tmpDiv.text(text).html();
+    },
     setTimeoutUnique: (function() {
         var timeouts = {};
         return function(fn, interval, uniqid) {
@@ -293,7 +297,8 @@ var View = {
                 left: bit.left
             })
             .find('.bit__text')
-            .html(Utils.escapeAndNl2br(bit.text || ''))
+            //.html(Utils.escape(bit.text || ''))
+            .text(bit.text)
             .end()
             .appendTo('#bit-holder')
             .draggable({
@@ -349,18 +354,42 @@ var View = {
         } else
             $bit.attr('data-id', id) // rather than .data() so that we can search for an id using CSS selectors
 
-        $bit.find('.bit__text').focusout(this.deleteIfEmpty).html(Utils.escapeAndNl2br(bit.text || ''));
+        $bit.find('.bit__text').focusout(this.deleteIfEmpty)
     },
     removeAllBits: function() {
         $('#bit-holder .bit__text').remove();
     },
     editBit: function(bit) {
         
+        /*
+        rangy.createRangyRange(document.querySelector("#bit-holder > div:nth-child(4) > div.bit__text"))
+        document.querySelector("#bit-holder > div:nth-child(4) > div.bit__text").childNodes[0]
+        range.setStartAndEnd(document.querySelector("#bit-holder > div:nth-child(4) > div.bit__text").childNodes[0],8,13)
+        range.deleteContents()
         
-        console.log("old",$('[data-id=' + bit.id + '] .bit__text').html());
-        console.log("new",Utils.escapeAndNl2br(bit.text));
+        insertNode(document.createTextNode("actual text"))
+*/
         
-        $('[data-id=' + bit.id + '] .bit__text').html(Utils.escapeAndNl2br(bit.text));
+        console.log("old",$('[data-id=' + bit.id + '] .bit__text').text());
+        console.log("new",bit.text);
+        
+        var $b = $('[data-id=' + bit.id + '] .bit__text');
+        var ot_steps = Utils.getOt($b.text(), bit.text);
+        console.log(ot_steps);
+        ot_steps.forEach(o => {
+            if (o[1] == "insert") {
+                var range = rangy.createRangyRange($b.get(0));
+                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]); //pas sûr qu'on ait besoin de spécifier le child node
+                range.insertNode(document.createTextNode(o[2])); // <-- attention, peut fausser les child nodes
+            }
+            else
+                var range = rangy.createRangyRange($b.get(0));
+                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[2]);
+                range.deleteContents();
+        });
+        
+        
+        // $('[data-id=' + bit.id + '] .bit__text').text(bit.text);
     },
     moveBit: function(bit) {
         $('[data-id=' + bit.id + ']').css({
