@@ -12,6 +12,11 @@ if ( /mobile/i.test(navigator.userAgent)) {
   })(jQuery);
 }
 
+var Config = {
+    OT_ENABLED: true,
+    SERVER_SEND_THROTTLE_INTERVAL: 500
+};
+
 // # UTILS
 var Utils = {
     escapeAndNl2br: function(text) {
@@ -22,6 +27,10 @@ var Utils = {
             htmls.push(tmpDiv.text(lines[i]).html());
         }
         return htmls.join("<br>");
+    },
+    escape: function(text) {
+        var tmpDiv = jQuery(document.createElement('div'));
+        return tmpDiv.text(text).html();
     },
     setTimeoutUnique: (function() {
         var timeouts = {};
@@ -42,6 +51,29 @@ var Utils = {
                 this.setTimeoutUnique(fn_, interval, uniqid)
         }
         this.setTimeoutUnique(fn_, interval, uniqid)
+    },
+    getOt: function(from,to) {
+        var dmp = new diff_match_patch();
+        var steps = dmp.diff_main(from,to);
+        var ot_steps = [];
+            
+        var n = 0;
+        for (var i = 0; i<steps.length; i++) {
+            switch (steps[i][0]) {
+                case DIFF_EQUAL:
+                    n += steps[i][1].length;
+                    break;
+                case DIFF_INSERT:
+                    ot_steps.push([n,"insert",steps[i][1]]);
+                    n += steps[i][1].length;
+                    break;
+                case DIFF_DELETE:
+                    ot_steps.push([n,"remove",steps[i][1].length]);
+                    break;
+            }
+        }
+        
+        return ot_steps;        
     }
 };
 
@@ -49,7 +81,6 @@ var Utils = {
 var View = {
     GRID_X: 10,
     GRID_Y: 14,
-    SERVER_SEND_THROTTLE_INTERVAL: 500,
     get$BitsAdjacentTo$Bit: function($bit,actualHeight) { // get bits to the left, right and bottom
 
       var refTop = parseInt($bit[0].style.top);
@@ -235,7 +266,7 @@ var View = {
                     id: $bit.data('id'),
                     text: this.getPlaintextFrom$BitMessage($bit_message)
                 });
-            }, this.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
+            }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
 
         });
 
@@ -254,7 +285,8 @@ var View = {
                 left: bit.left
             })
             .find('.bit__text')
-            .html(Utils.escapeAndNl2br(bit.text || ''))
+            //.html(Utils.escape(bit.text || ''))
+            .text(bit.text)
             .end()
             .appendTo('#bit-holder')
             .draggable({
@@ -300,7 +332,7 @@ var View = {
                             left: ui.position.left,
                             top: ui.position.top
                         })
-                    }, thisView.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
+                    }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
                 }
             });
 
@@ -310,13 +342,89 @@ var View = {
         } else
             $bit.attr('data-id', id) // rather than .data() so that we can search for an id using CSS selectors
 
-        $bit.find('.bit__text').focusout(this.deleteIfEmpty).html(Utils.escapeAndNl2br(bit.text || ''));
+        $bit.find('.bit__text').focusout(this.deleteIfEmpty)
     },
     removeAllBits: function() {
         $('#bit-holder .bit__text').remove();
     },
     editBit: function(bit) {
-        $('[data-id=' + bit.id + '] .bit__text').html(Utils.escapeAndNl2br(bit.text));
+        var $b = $('[data-id=' + bit.id + '] .bit__text');
+        var old_text = $b.text();
+        
+        if (!Config.OT_ENABLED || !old_text.trim().length) {
+            debug('ot')('Updating contents without using OT');
+            $b.text(bit.text);
+            return;
+        }
+        
+        var ot_steps = Utils.getOt(old_text, bit.text);
+        
+        debug('ot')('Old text: ', old_text);
+        debug('ot')('New text: ', bit.text);
+        debug('ot')('Steps: ', ot_steps);
+        
+        $b.get(0).normalize();
+        
+        var sel = rangy.getSelection($b.get(0));
+        var sel_range = $b.is(':focus') && sel.getAllRanges()[0];
+        
+        if (sel_range) {
+            var sel_start = sel_range.startOffset;
+            var sel_end = sel_range.endOffset;
+            debug('ot')('Old text selection offsets: ', sel_start, sel_end);
+        }
+        else {
+            debug('ot')('No selection in this bit.');
+        }
+        
+        ot_steps.forEach(o => {
+            if (o[1] == "insert") {
+                var range = rangy.createRangyRange($b.get(0));
+                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]); //pas sûr qu'on ait besoin de spécifier le child node
+                range.insertNode(document.createTextNode(o[2])); // <-- attention, peut fausser les child nodes
+                if (sel_range) {
+                    if (o[0] <= sel_start)
+                        sel_start+=o[2].length;
+                    
+                    if (o[0] < sel_end)
+                        sel_end+=o[2].length;
+                }
+            }
+            else {
+                var range = rangy.createRangyRange($b.get(0));
+                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]+o[2]);
+                range.deleteContents();
+                if (sel_range) {
+                
+                    if (o[0] + o[2] < sel_start) { // Range is before selection
+                        sel_start-=o[2];
+                        sel_end-=o[2];
+                    } else if (o[0] < sel_start && o[0]+o[2] <= sel_end) { // Range starts before selection, ends within selection
+                        sel_start=o[0]+o[2];
+                        sel_start-=o[2];
+                        sel_end-=o[2];
+                    } else if (o[0] >= sel_start && o[0]+o[2] <= sel_end) { // Range is within selection
+                        sel_end-=o[2];
+                    } else if (o[0] >= sel_start && o[0]+o[2] > sel_end) { // Range starts within selection, ends after selction
+                        sel_end-=sel_end-o[0];
+                    } else if (o[0] < sel_start && o[0]+o[2] > sel_end) { // Range starts before selection, ends after selection
+                        sel_start=o[0];
+                        sel_end=o[0];
+                    } else {
+                        console.error("Range conditions were thought to be exhaustive but in fact aren't",o[0],o[2],sel_start,sel_end);
+                    }
+                    
+                }
+            }
+            $b.get(0).normalize();
+        });
+        
+        if (sel_range) {
+            debug('ot')('New text selection offsets: ', sel_start, sel_end);
+            var new_sel_range = rangy.createRangyRange($b.get(0));
+            new_sel_range.setStartAndEnd($b.get(0).childNodes[0], sel_start, sel_end);
+            sel.setRanges([new_sel_range]);
+        }
     },
     moveBit: function(bit) {
         $('[data-id=' + bit.id + ']').css({
@@ -388,12 +496,12 @@ var App = new Vue({
 
             this.socket.on('connect', () => {
                 if (!this.firstConnection) {
-										debug('sockets')('Reconnected')
+                    debug('sockets')('Reconnected')
                     this.socket.emit('swarm', this.roomName);
                     return;
                 }
                 this.firstConnection = false;
-								debug('sockets')('Connected')
+                debug('sockets')('Connected');
 
                 // The following executed only once
 
@@ -420,6 +528,7 @@ var App = new Vue({
             });
 
             this.socket.on('connectedUsersCount', (count) => {
+              debug('sockets')('Received connectedUsersCount', count);
               this.connectedUsersCount = count;
             });
 
@@ -440,10 +549,12 @@ var App = new Vue({
             // @todo encodage
 
             this.socket.on('tempIdIsId', (obj) => {
+                debug('sockets')('Received tempIdIsId', obj);
                 View.tempIdIsId(obj.temp_id, obj.id);
             });
 
             this.socket.on('new', (bit) => {
+                debug('sockets')('Received new', bit);
                 View.appendBit({
                     left: bit.left,
                     top: bit.top,
@@ -452,16 +563,19 @@ var App = new Vue({
             });
 
             this.socket.on('move', function(updatedBit) {
+                debug('sockets')('Received move', updatedBit);
                 View.moveBit(updatedBit)
             });
 
             this.socket.on('delete', function(id) {
+                debug('sockets')('Received delete', id);
                 View.deleteBit({
                     id: id
                 });
             });
 
             this.socket.on('edit', function(bit) {
+                debug('sockets')('Received edit', bit);
                 View.editBit(bit);
             });
         },

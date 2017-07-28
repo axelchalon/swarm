@@ -176,6 +176,7 @@ small {
 			outline: 0;
 			font-size: 12px;
 			line-height: 1.2;
+            white-space: pre-wrap;
 		}
 		&.focus .bit__text, &.being-dragged .bit__text {
 			box-shadow: 0px 0px 1px rgba(0,0,0,0.2)
