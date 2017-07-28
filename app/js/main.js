@@ -279,7 +279,7 @@ var View = {
     },
     appendBit: function(bit, id, created_by_user) {
         var thisView = this;
-        var $bit = $($('.template-bit').html()) // or children.clone
+        var $bit = $(!window.chrome ? $('.template-bit-nonchrome').html() : $('.template-bit-chrome').html()) // or children.clone
             .css({
                 top: bit.top,
                 left: bit.left
@@ -351,7 +351,7 @@ var View = {
         var $b = $('[data-id=' + bit.id + '] .bit__text');
         var old_text = $b.text();
         
-        if (!Config.OT_ENABLED || !old_text.trim().length) {
+        if (!Config.OT_ENABLED || !old_text.trim().length || !window.chrome) {
             debug('ot')('Updating contents without using OT');
             $b.text(bit.text);
             return;
@@ -380,8 +380,8 @@ var View = {
         ot_steps.forEach(o => {
             if (o[1] == "insert") {
                 var range = rangy.createRangyRange($b.get(0));
-                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]); //pas sûr qu'on ait besoin de spécifier le child node
-                range.insertNode(document.createTextNode(o[2])); // <-- attention, peut fausser les child nodes
+                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]);
+                range.insertNode(document.createTextNode(o[2]));
                 if (sel_range) {
                     if (o[0] <= sel_start)
                         sel_start+=o[2].length;
