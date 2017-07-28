@@ -12,6 +12,11 @@ if ( /mobile/i.test(navigator.userAgent)) {
   })(jQuery);
 }
 
+var Config = {
+    OT_ENABLED: true,
+    SERVER_SEND_THROTTLE_INTERVAL: 500
+};
+
 // # UTILS
 var Utils = {
     escapeAndNl2br: function(text) {
@@ -68,23 +73,7 @@ var Utils = {
             }
         }
         
-        return ot_steps;
-        
-        // rust is better
-        // get structs etc :D cf enum microlib cf data structures js
-        
-        /*
-        test
-        
-        hello
-        heAlluX!
-        [2,"insert","A"]
-        [5,"remove",1]
-        [5,"insert","uX"]
-        
-        console.log(Utils.getOt("hello","heAlluX"),Utils.getOt("hello","heAlluX").toString() == [[2,"insert","A"], [5,"remove",1], [5,"insert","uX"]].toString())
-        */
-        
+        return ot_steps;        
     }
 };
 
@@ -92,7 +81,6 @@ var Utils = {
 var View = {
     GRID_X: 10,
     GRID_Y: 14,
-    SERVER_SEND_THROTTLE_INTERVAL: 500,
     get$BitsAdjacentTo$Bit: function($bit,actualHeight) { // get bits to the left, right and bottom
 
       var refTop = parseInt($bit[0].style.top);
@@ -278,7 +266,7 @@ var View = {
                     id: $bit.data('id'),
                     text: this.getPlaintextFrom$BitMessage($bit_message)
                 });
-            }, this.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
+            }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
 
         });
 
@@ -344,7 +332,7 @@ var View = {
                             left: ui.position.left,
                             top: ui.position.top
                         })
-                    }, thisView.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
+                    }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
                 }
             });
 
@@ -360,36 +348,68 @@ var View = {
         $('#bit-holder .bit__text').remove();
     },
     editBit: function(bit) {
-        
-        /*
-        rangy.createRangyRange(document.querySelector("#bit-holder > div:nth-child(4) > div.bit__text"))
-        document.querySelector("#bit-holder > div:nth-child(4) > div.bit__text").childNodes[0]
-        range.setStartAndEnd(document.querySelector("#bit-holder > div:nth-child(4) > div.bit__text").childNodes[0],8,13)
-        range.deleteContents()
-        
-        insertNode(document.createTextNode("actual text"))
-*/
-        
-        console.log("old",$('[data-id=' + bit.id + '] .bit__text').text());
-        console.log("new",bit.text);
-        
         var $b = $('[data-id=' + bit.id + '] .bit__text');
-        var ot_steps = Utils.getOt($b.text(), bit.text);
-        console.log(ot_steps);
+        
+        if (!Config.OT_ENABLED) {
+            $b.text(bit.text);
+            return;
+        }
+        
+        var old_text = $b.text();
+        var ot_steps = Utils.getOt(old_text, bit.text);
+        
+        debug('ot')('Old text: ', old_text);
+        debug('ot')('New text: ', bit.text);
+        debug('ot')('Steps: ', ot_steps);
+        
+        $b.get(0).normalize();
+        
+        var sel = rangy.getSelection($b.get(0));
+        var sel_range = sel.getAllRanges()[0];
+        
+        if (sel_range) {
+            var sel_start = sel_range.startOffset;
+            var sel_end = sel_range.endOffset;
+            debug('ot')('Old text selection offsets: ', sel_start, sel_end);
+        }
+        else {
+            debug('ot')('No selection');
+        }
+        
         ot_steps.forEach(o => {
             if (o[1] == "insert") {
                 var range = rangy.createRangyRange($b.get(0));
                 range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]); //pas sûr qu'on ait besoin de spécifier le child node
                 range.insertNode(document.createTextNode(o[2])); // <-- attention, peut fausser les child nodes
+                if (sel_range) {
+                    if (o[0] <= sel_start)
+                        sel_start+=o[2].length;
+                    
+                    if (o[0] <= sel_end)
+                        sel_end+=o[2].length;
+                }
             }
-            else
+            else {
                 var range = rangy.createRangyRange($b.get(0));
-                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[2]);
+                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]+o[2]);
                 range.deleteContents();
+                if (sel_range) {
+                    if (o[0] <= sel_start)
+                        sel_start-=o[2];
+                    
+                    if (o[0] <= sel_end)
+                        sel_end-=o[2];
+                }
+            }
+            $b.get(0).normalize();
         });
         
-        
-        // $('[data-id=' + bit.id + '] .bit__text').text(bit.text);
+        if (sel_range) {
+            debug('ot')('New text selection offsets: ', sel_start, sel_end);
+            var new_sel_range = rangy.createRangyRange($b.get(0));
+            new_sel_range.setStartAndEnd($b.get(0).childNodes[0], sel_start, sel_end);
+            sel.setRanges([new_sel_range]);
+        }
     },
     moveBit: function(bit) {
         $('[data-id=' + bit.id + ']').css({
