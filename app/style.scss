@@ -151,12 +151,15 @@ small {
 			position: absolute; left: 0px; top: -15px; right: 0; height: 15px;
 			background: #B7B7B7;
 			cursor: move;
+			text-align: center;
+    		color: #dedede;
 		}
 
 		.bit__delete {
 			display: none;
 			position: absolute; right: 0; top: -15px; width: 10px; height: 15px; padding-right: 5px;
 			cursor: pointer;
+			color: white;
 		}
 
 		&:hover {
@@ -200,7 +203,7 @@ small {
 		position: fixed;
 		font-size: 10px;
 		line-height: 1.5;
-		color: #eee;
+		color: black;
 		bottom: 0;
 		left: 0;
 		padding: 3px 5px;
@@ -211,7 +214,7 @@ small {
 		position: fixed;
 		font-size: 10px;
 		line-height: 1.5;
-		color: #eee;
+		color: black;
 		text-align: right;
 		bottom: 0;
 		right: 0;
