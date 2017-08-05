@@ -149,6 +149,8 @@ var View = {
             var relX = e.pageX - parentOffset.left;
             var relY = e.pageY // - parentOffset.top - 5;
 
+            relY -= 35; // top margin
+
             // Grid
             relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
             relY = Math.round(relY / thisView.GRID_Y) * thisView.GRID_Y

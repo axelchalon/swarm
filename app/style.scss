@@ -44,7 +44,7 @@ table {
 /* --- */
 
 body {
-	background: url("https://subtlepatterns.com/wp-content/themes/tweaker7/images/transp_bg.png");
+	background: #bebebe;
 }
 
 @media (min-width: 1024px) {
@@ -76,6 +76,7 @@ small {
 
 .page--swarm {
 	min-height: 100%;
+	padding-top: 35px;
 
     /* Only center in big enough resolutions */
     @media (min-width: 1024px) {
@@ -92,9 +93,8 @@ small {
 
 	div#canvas {
 		width: 1024px;
-		background: #EEE;
-		border: 1px dashed black;
-		border-top: 0; border-bottom: 0;
+		background: #eee;
+		outline: 35px solid #EEE;
 		margin: 0;
 
         /* Only center in big enough resolutions */
@@ -105,7 +105,7 @@ small {
 
 		cursor: crosshair;
 		position: fixed;
-		top: 0; bottom: -1000px; /* allows for dragging bits below the bottom edge */
+		top: 35px; bottom: -1000px; /* allows for dragging bits below the bottom edge */
 
 		.swarm-name {
 			position: absolute;
@@ -148,15 +148,14 @@ small {
 
 		.bit__handle {
 			display: none;
-			position: absolute; left: -5px; top: -5px; right: 0; height: 10px;
+			position: absolute; left: 0px; top: -10px; right: 0; height: 15px;
 			background: #B7B7B7;
 			cursor: move;
 		}
 
 		.bit__delete {
 			display: none;
-			position: absolute; left: -5px; top: -5px; width: 10px; height: 10px;
-			background: red;
+			position: absolute; right: 0; top: -10px; width: 10px; height: 15px; padding-right: 5px;
 			cursor: pointer;
 		}
 
@@ -164,6 +163,9 @@ small {
 			.bit__delete,
 			.bit__handle {
 				display: block;
+			}
+			.bit__delete:hover {
+				color: red;
 			}
 		}
 
@@ -194,8 +196,7 @@ small {
 		position: fixed;
 		font-size: 10px;
 		line-height: 1.5;
-		background: white;
-		color: #999;
+		color: #eee;
 		bottom: 0;
 		left: 0;
 		padding: 3px 5px;
@@ -206,8 +207,7 @@ small {
 		position: fixed;
 		font-size: 10px;
 		line-height: 1.5;
-		background: white;
-		color: #999;
+		color: #eee;
 		text-align: right;
 		bottom: 0;
 		right: 0;
