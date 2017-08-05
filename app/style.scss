@@ -91,6 +91,19 @@ small {
 		position: relative;
 	}
 
+	.swarm-name {
+		position: absolute;
+		z-index: 0;
+		color: #CFCFCF;
+		font-size: 16px;
+		top: 0px;
+		left: 50%;
+		transform: translateX(-50%);
+		pointer-events: none;
+		line-height: 35px;
+    	vertical-align: middle;
+	}
+
 	div#canvas {
 		width: 1024px;
 		background: #eee;
@@ -106,18 +119,6 @@ small {
 		cursor: crosshair;
 		position: fixed;
 		top: 35px; bottom: -1000px; /* allows for dragging bits below the bottom edge */
-
-		.swarm-name {
-			position: absolute;
-			position: fixed;
-			z-index: 0;
-			color: #CFCFCF;
-			font-size: 30px;
-			top: 50%;
-			left: 50%;
-			transform: translateX(-50%) translateY(-50%);
-			pointer-events: none;
-		}
 
 	}
 
