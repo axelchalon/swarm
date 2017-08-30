@@ -1,14 +1,15 @@
-var http = require('http'),
+var https = require('https'),
 	Datastore = require('nedb');
-
+var fs = require('fs');
 var db = new Datastore({ filename: 'data.db', autoload: true });
 // var db = {}
 
 // Send index.html to all requests
-var app = http.createServer(function(req, res) {
-    res.writeHead(200, 'Nothing here. You\'re on the socket port.');
-    res.end();
-});
+var app = https.createServer( {
+key: fs.readFileSync('/etc/letsencrypt/live/dashpad.me/privkey.pem'),
+cert: fs.readFileSync('/etc/letsencrypt/live/dashpad.me/fullchain.pem')
+}
+);
 
 // Socket.io server listens to our app
 var io = require('socket.io').listen(app);

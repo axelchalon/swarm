@@ -480,7 +480,7 @@ var App = new Vue({
     methods: {
         initializeSocketEvents: function() {
             if (location.hostname == 'swarm.ovh' || 1)
-                this.socket = io.connect('http://141.138.157.211:1336');
+                this.socket = io.connect('https://dashpad.me:1336');
             else
                 this.socket = io.connect('http://127.0.0.1:1336');
 
