@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SWARM – Public whiteboard – An experiment in peer regulation</title>
+    <title>Dashpad – Online whiteboard</title>
     <meta name="description" content="Public whiteboard.">
     <link rel="icon" href="favicon.png" type="image/x-icon" /> <!-- favicon by Shane Miller -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.4/socket.io.min.js"></script>
@@ -38,9 +38,7 @@
 
      	<div class="page page--swarm" v-show="screen == 'active'" v-bind:class="{ 'no-internet': noInternet }">
     		<div id="canvas">
-          <h1 class="swarm-name" v-show="! ('secret' in flags)">
-            {{ roomName || 'swarm' }}
-          </h1>
+          <h1 class="swarm-name" v-show="! ('secret' in flags)">{{ roomName || '' }}</h1>
     		</div>
         <div id="bit-holder">
         </div>

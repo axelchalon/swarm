@@ -548,7 +548,7 @@ var App = new Vue({
                 if ('secret' in this.flags) {
                     window.history.pushState({}, null, '/');
                 } else if (this.roomName.length){
-                    document.title = this.roomName + ' – SWARM';
+                    document.title = this.roomName + ' – Dashpad';
                 }
             });
 
@@ -648,3 +648,7 @@ var App = new Vue({
 
 App.initializeSocketEvents();
 View.initializeEvents();
+
+/* tests:
+assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOOPAI');
+*/

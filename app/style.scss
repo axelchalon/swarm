@@ -119,6 +119,11 @@ small {
 			pointer-events: none;
 		}
 
+		.swarm-name:empty:after {
+			content: "—pad";
+			font-style: italic;
+		}
+
 	}
 
 
