@@ -204,7 +204,6 @@ var View = {
           var $bit = $(e.target).closest('.bit');
           if (cascadeMemory.$bit.is($bit) // security check
             && cascadeMemory.height != $bit.height()) {
-              console.log('bit height',$bit.height(),'& cascadememory height',cascadeMemory.height)
               var difference = $bit.height() - cascadeMemory.height;
               var oldHeight = cascadeMemory.height;
               cascadeMemory.height = $bit.height()
@@ -268,6 +267,7 @@ var View = {
                     id: $bit.data('id'),
                     text: this.getPlaintextFrom$BitMessage($bit_message)
                 });
+                $('[data-id=' + $bit.data('id') + ']').data('shared',this.getPlaintextFrom$BitMessage($bit_message));
             }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
 
         });
@@ -290,6 +290,7 @@ var View = {
             //.html(Utils.escape(bit.text || ''))
             .text(bit.text)
             .end()
+            .data('shared',bit.text)
             .appendTo('#bit-holder')
             .draggable({
                 handle: ".bit__handle",
@@ -351,6 +352,7 @@ var View = {
     },
     editBit: function(bit) {
         var $b = $('[data-id=' + bit.id + '] .bit__text');
+        var shared_text = $('[data-id=' + bit.id + ']').data('shared');
         var old_text = $b.text();
         
         if (!Config.OT_ENABLED || !old_text.trim().length || !window.chrome) {
@@ -359,10 +361,29 @@ var View = {
             return;
         }
         
-        var ot_steps = Utils.getOt(old_text, bit.text);
+        if (old_text == shared_text) { 
+            var new_text = bit.text;
+            debug('ot')('Old text: ', old_text);
+            debug('ot')('New text: ', new_text);
+        } else { // local modifications
+            debug('ot')('Remotely edited text has local modifications; merging.');
+            var dmp = new diff_match_patch();
+            var patch = dmp.patch_make(shared_text, bit.text);
+            var new_text = dmp.patch_apply(patch, old_text);
+            debug('ot')('Shared text: ', shared_text);
+            debug('ot')('Remote text: ', bit.text);
+            debug('ot')('Patch from shared to remote: ',patch)
+            debug('ot')('Local text: ', old_text);
+            debug('ot')('Merged text (apply shared->remote to local) info: ', new_text);
+            new_text = new_text[0];
+            App.clientEditedBit({id: bit.id, text: new_text});
+            // ou si le patch failed, de local à remote
+        }
+
+        $('[data-id=' + bit.id + ']').data('shared',new_text);
+
+        var ot_steps = Utils.getOt(old_text, new_text);
         
-        debug('ot')('Old text: ', old_text);
-        debug('ot')('New text: ', bit.text);
         debug('ot')('Steps: ', ot_steps);
         
         $b.get(0).normalize();
@@ -401,6 +422,8 @@ var View = {
                     if (o[0] + o[2] < sel_start) { // Range is before selection
                         sel_start-=o[2];
                         sel_end-=o[2];
+                    } else if (o[0] >= sel_end) { // Range is after selection (?)
+                        
                     } else if (o[0] < sel_start && o[0]+o[2] <= sel_end) { // Range starts before selection, ends within selection
                         sel_start=o[0]+o[2];
                         sel_start-=o[2];
