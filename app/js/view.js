@@ -77,10 +77,12 @@ var Utils = {
     }
 };
 
-// # VIEW UTILS (needs UTILS)
+// # VIEW UTILS
 var View = {
+    // this is front-related config
     GRID_X: 10,
     GRID_Y: 14,
+    // this could go in view utils
     get$BitsAdjacentTo$Bit: function($bit,actualHeight) { // get bits to the left, right and bottom
 
       var refTop = parseInt($bit[0].style.top);
@@ -127,6 +129,10 @@ var View = {
 
         $('#bit-holder').on('mousedown', '.bit__delete', function(e) {
             // issue: app contient la logique serveur & la logique vue front
+
+            // Events.Client.DeleteBit.next("some deleted value"); .trigger ...
+
+            // this will be the data of the stream
             App.clientDeletedBit({
                 id: $(e.target).parent().data('id'),
                 text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
@@ -134,12 +140,13 @@ var View = {
                 top: $(e.target).parent().css('top')
               })
 
+            // remove following and put it in the "event subscribe" section of the file
             thisView.delete$Bit($(e.target).parent())
             return true;
         })
 
         $('#canvas').on('mousedown', function(e) {
-						if ($(this).hasClass('no-internet'))
+						if ($(this).hasClass('no-internet')) // this apparently doesn't work
 							return;
 
             if (e.target !== this)
@@ -156,6 +163,8 @@ var View = {
             relY = Math.round(relY / thisView.GRID_Y) * thisView.GRID_Y
 
             var id = Math.floor(Math.random() * 100000); // magic is happening
+
+            // trigger a stream instead (always: UI dom event => stream => ui response)
             thisView.appendBit({
                 left: relX,
                 top: relY
@@ -166,6 +175,7 @@ var View = {
             // app socket handling needs to be request/response style
             // but what about handling of the client bit without id before this?
 
+            // use some clever rx tricks to map clientId to serverId (for example store the data UNTIL stream clientIdIsServerId FOR DATA clientId !!! or combinelatest with; and the hydration fires a lot)
             App.clientCreatedBit({
                 id: id,
                 top: relY,
@@ -175,18 +185,42 @@ var View = {
         });
 
 				$('#bit-holder').on('focus', '.bit__text', (e) => {
-          cascadeMemory.$bit = $(e.target).closest('.bit');
-          cascadeMemory.height = $(e.target).closest('.bit').height();
+                    // [bacon.js] cascadememory could be a module that listens to Client.FocusOnBitText which is $madeFromDom
+                    // in which case
+                    // the DOM event listener would be built-in the events.js declaration (urgh)
+                    // how to differentiate empty observables from not empty ones?
+                    // simply have it be an empty observable and call .next() here?
+                    // but then not leveraging the $fromdom 
+
+                    // maybe we could have a section at the to of view.js and server.js with the list of
+                    // events defined for this section
+                    // like Events.View = { DeleteBit: bacon.fromdom.. }
+
+                    // weeeell state could theoretically also be a stream, but I think that's too much
+                    // ! the stream should be called with the .bit, no the .bit__text (there might be some tranformation needed; we can inline it at declaration level)
+                    cascadeMemory.$bit = $(e.target).closest('.bit');
+                    cascadeMemory.height = $(e.target).closest('.bit').height();
+                    // could also simply not register the stream in the global stream
+                    // and simply do bacon.fromdom() => {} which is just equivalent syntax so doesn't make difference...
+                    // OK SO: register the bacon.fromdom as a global stream, so we can make a standalone cascadememory module after!!! which just subscribes
+                    // this could be registered at the top, at the time of streams declaration
+
+                    // here we would do BitFocus.subscribe
 					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
 				})
 
+                // same as before : declare at the top fromdom; here we would just subscribe
+                // bam the focus component :D
 				$('#bit-holder').on('blur', '.bit__text', (e) => {
 					$(e.target).closest('.bit').css('z-index','').removeClass('focus')
 				})
 
+        // this would be at the bottom in its own module
+        // not sure if state is necessary; could use streams
         var cascadeMemory = {$bit: $(''), initialHeight: 0}
 
         // Prevent from pasting formatted text
+        // mmm this could stay this way, no real point (standalone)
         $('#bit-holder').on('paste', '.bit__text', ($e) => {
           var e = $e.originalEvent;
           var text = "";
@@ -200,10 +234,22 @@ var View = {
           document.execCommand("insertHTML" , false, text);
         });
 
+        // this could be declred at the to as BitKeyUp event; and the following would be in the
+        // cascade part of the code
+        // BitKeyUp called with Bit (not bit__text, otherwise it'd be bittextkeyup)
         $('#bit-holder').on('keyup', '.bit__text', (e) => {
           var $bit = $(e.target).closest('.bit');
           if (cascadeMemory.$bit.is($bit) // security check
             && cascadeMemory.height != $bit.height()) {
+                // okay theoretically we could really use declarative mode and use
+                // loads of streams and be like
+                // KeyUp = xxx
+                // HeightChanged = KeyUp.filter...
+                // HeightChanged.subscribe ...
+                // we could also use this syntax for declaring all sorts of streams and middleware
+                // and expose the need-to-be-exposed streams at the end
+                // naming convention like maj(public)/min could be used
+                // ^ this is not a bad idea
               var difference = $bit.height() - cascadeMemory.height;
               var oldHeight = cascadeMemory.height;
               cascadeMemory.height = $bit.height()
@@ -220,6 +266,17 @@ var View = {
             }
         });
 
+        // fromDom(keydown,'document','.bit__text').filter(e => e.alt...).map(() => {top: x, left: y}).redirectTo(ClientMovedBit)
+        // ou plutôt que redirectTo, c'est le résultat en fait qui est ClientMovedBit!
+        // ClientMovedBit = ...
+        // plutôt qu'utiliser un standard min/maj pour savoir si c'est exposed ou pas,
+        // utiliser Events.View.ClientMovedBit = ...
+        // parce que ClientMovedBit est utilisé après aussi par drag, plutôt uilisr next que déclarer
+        // :)
+        // et evtl déclarer tous les evts au début (juste la structure du json, avec :null)
+        // et freeze!!!
+        // hmmm ce serait cool de définir le pattern de ce que l'event renvoie, tout en haut aussi
+        // YES
         $(document).on('keydown', (e) => {
           if (e.altKey && e.keyCode >= 37 && e.keyCode <= 40) {
 
@@ -251,6 +308,8 @@ var View = {
           }
         });
 
+        // Events.Client.EditedBit = fromDom('bit-holder','input','bit__text').map()
+        // and use some clientId<>serverId stream magic maybe
         $('#bit-holder').on('input', '.bit__text', (e) => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
@@ -259,6 +318,10 @@ var View = {
             // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
             var uniqid = $bit.data('tempid') || $bit.data('id');
 
+            // this will happen in server.js
+            // Events.Server.ClientEditedBitSent
+            // Events.Client.EditedBit.mergeWithLatestValueFromStream(clientIdIsServerId.filter(clientId)).debounce(x).subscribe
+            // @TODO lire à fond les docs de rxjs et tout pour comprendre les patterns
             Utils.setTimeoutUniqueRepeatUntil(() => {
                 if (typeof($bit.data('id')) === 'undefined')
                     return false
@@ -267,6 +330,8 @@ var View = {
                     id: $bit.data('id'),
                     text: this.getPlaintextFrom$BitMessage($bit_message)
                 });
+
+                //  Events.Server.ClientEditedBitSent.subscribe() =>
                 $('[data-id=' + $bit.data('id') + ']').data('shared',this.getPlaintextFrom$BitMessage($bit_message));
             }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
 
@@ -279,6 +344,8 @@ var View = {
                 return null;
         }
     },
+    // Events.Server.BitCreated.subscribe
+    // Events.Client/View(aka).BitCreated.subscribe
     appendBit: function(bit, id, created_by_user) {
         var thisView = this;
         var $bit = $(!window.chrome ? $('.template-bit-nonchrome').html() : $('.template-bit-chrome').html()) // or children.clone
@@ -327,6 +394,8 @@ var View = {
                     // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
                     var uniqid = $bit.data('tempid') || $bit.data('id');
 
+                    // events.client.movedbit.next()
+                    // dans server.js, throttle, mais c'est déjà fait
                     Utils.setTimeoutUniqueRepeatUntil(() => {
                         if (typeof($bit.data('id')) === 'undefined')
                             return false
@@ -339,17 +408,21 @@ var View = {
                 }
             });
 
+        //uuuuuuuuuuuuuuuuuuuuuh
+        //not sure, if both the streams are subscribed by the same callback
         if (created_by_user) {
             $bit.find('.bit__text').focus();
             $bit.attr('data-tempid', id) // rather than .data() so that we can search for an id using CSS selectors
         } else
             $bit.attr('data-id', id) // rather than .data() so that we can search for an id using CSS selectors
 
-        $bit.find('.bit__text').focusout(this.deleteIfEmpty)
+        $bit.find('.bit__text').focusout(this.deleteIfEmpty) // global DOM event rather
+        // keep the cb name 
     },
     removeAllBits: function() {
         $('#bit-holder .bit__text').remove();
     },
+    //server.editbit.subscribe
     editBit: function(bit) {
         var $b = $('[data-id=' + bit.id + '] .bit__text');
         var shared_text = $('[data-id=' + bit.id + ']').data('shared');
@@ -376,13 +449,16 @@ var View = {
             debug('ot')('Local text: ', old_text);
             debug('ot')('Merged text (apply shared->remote to local) info: ', new_text);
             new_text = new_text[0];
+            // trigger events.client.editedBit
+            // @todo when to know if the view stuff is already done before the stream nextd
+            // or if it is done on subscribe?
             App.clientEditedBit({id: bit.id, text: new_text});
             // ou si le patch failed, de local à remote
         }
 
         $('[data-id=' + bit.id + ']').data('shared',new_text);
 
-        var ot_steps = Utils.getOt(old_text, new_text);
+        var ot_steps = Utils.getOt(old_text, new_text); // util the shit out of it
         
         debug('ot')('Steps: ', ot_steps);
         
@@ -397,7 +473,7 @@ var View = {
             debug('ot')('Old text selection offsets: ', sel_start, sel_end);
         }
         else {
-            debug('ot')('No selection in this bit.');
+            debug('ot')('No selection in this bit.'); // oh yeah debugs
         }
         
         ot_steps.forEach(o => {
@@ -451,24 +527,29 @@ var View = {
             sel.setRanges([new_sel_range]);
         }
     },
+    // server.movebit.subscribe (check if called locally also)
     moveBit: function(bit) {
         $('[data-id=' + bit.id + ']').css({
             top: bit.top,
             left: bit.left
         });
     },
+    // server.deletebit.subscribe
     deleteBit: function(bit) {
 			this.delete$Bit($('[data-id=' + bit.id + ']'));
     },
+    // wtf brah
 		delete$Bit: function($bit) {
 			$bit.addClass('being-removed')
 			setTimeout(() => {
 				$bit.remove();
 			}, 500)
 		},
+        // server.js logic; use a single stream with {temp_id, id} ?
     tempIdIsId: function(temp_id, id) {
         $('[data-tempid=' + temp_id + ']').attr('data-id', id);
     },
+    // subscribe focusout delete if empty, make it a module
     deleteIfEmpty: function(e) {
         if ($(this).text().length < 1) {
             $(this).siblings('.bit__delete').trigger('mousedown');
@@ -502,34 +583,50 @@ var App = new Vue({
     },
     methods: {
         initializeSocketEvents: function() {
+            // hello server.js (the node server is also called server.js, hmm)
             if (location.hostname == 'swarm.ovh' || 1)
                 this.socket = io.connect('https://dashpad.me:1336');
             else
                 this.socket = io.connect('http://127.0.0.1:1336');
 
+                // bam les fromCalback
+                // streams
             this.socket.on('connect_error', (e) => {
 								if (this.firstConnection) {
+                                    // some stream magic
+                                    // LostConnection.without(Server.EstblishedConnection)
+                                    // <> (and if the other is empty)
 									debug('sockets')('Could not connect')
                 	this.screen = 'error'
 								}
 								else if (!this.noInternet){
 									debug('sockets')('Lost connection')
 									this.noInternet = true;
+                                    // ah, server.js changes the globalState?
+                                    // no, simply use Server.LostConnection.next()
 									View.setReadOnly();
 								}
             });
 
             this.socket.on('connect', () => {
+                // Server.EstablishedConnection.next()
+                // use streams for this also
                 if (!this.firstConnection) {
                     debug('sockets')('Reconnected')
                     this.socket.emit('swarm', this.roomName);
                     return;
                 }
-                this.firstConnection = false;
-                debug('sockets')('Connected');
+                this.firstConnection = false; // STREAAMS
+                debug('sockets')('Connected'); // yay debug
 
                 // The following executed only once
 
+                // in view.js
+                // inception all of this
+                // view.js first triggered in the beginning of times
+                // Client.EstablishConnectionToServer/Ready/..
+                // no; server.js does this
+                // doesn't matter if he accesses the url
                 var [_, roomName, flagsString] = window.location.href.match(/\/([^/+*]*)([+*]*)$/)
                 this.roomName = roomName;
                 this.flags = flagsString.split('').reduce((acc, flagLetter) => {
@@ -545,6 +642,7 @@ var App = new Vue({
 
                 this.socket.emit('swarm', this.roomName);
 
+                // well this is still view-y stuff
                 if ('secret' in this.flags) {
                     window.history.pushState({}, null, '/');
                 } else if (this.roomName.length){
@@ -552,14 +650,20 @@ var App = new Vue({
                 }
             });
 
+            // onsocketon
+            // ou: .. = fromSocket
+            // Server.ConnectedUsersCount
             this.socket.on('connectedUsersCount', (count) => {
               debug('sockets')('Received connectedUsersCount', count);
               this.connectedUsersCount = count;
             });
 
+            // view: do not refresh if states are the same, hashdiff it somehow
             this.socket.on('catchUp', (bits) => {
+                // Server.CatchUp = ...
+                // view.js: Server.catchUp.subscribe...
                 debug('sockets')('Catching up')
-								this.noInternet = false;
+								this.noInternet = false; // what are you
                 View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
                 $.each(bits, function(i, bit) {
                     View.appendBit({
@@ -573,13 +677,16 @@ var App = new Vue({
 
             // @todo encodage
 
+            //idem
             this.socket.on('tempIdIsId', (obj) => {
                 debug('sockets')('Received tempIdIsId', obj);
                 View.tempIdIsId(obj.temp_id, obj.id);
             });
 
+            // idem
             this.socket.on('new', (bit) => {
                 debug('sockets')('Received new', bit);
+                // view.js subscribe
                 View.appendBit({
                     left: bit.left,
                     top: bit.top,
@@ -587,11 +694,13 @@ var App = new Vue({
                 }, bit.id)
             });
 
+            // idem
             this.socket.on('move', function(updatedBit) {
                 debug('sockets')('Received move', updatedBit);
                 View.moveBit(updatedBit)
             });
 
+            // idem
             this.socket.on('delete', function(id) {
                 debug('sockets')('Received delete', id);
                 View.deleteBit({
@@ -599,12 +708,13 @@ var App = new Vue({
                 });
             });
 
+            // idem, Server.EditBit
             this.socket.on('edit', function(bit) {
                 debug('sockets')('Received edit', bit);
                 View.editBit(bit);
             });
         },
-        clientDeletedBit: function(bit) {
+        clientDeletedBit: function(bit) { // eh
 					if (bit.text) {
 						this.cancelToastBit = Object.assign({},bit);
 						this.showCancelToast = true;
@@ -613,7 +723,7 @@ var App = new Vue({
 					}
           this.socket.emit('delete', bit.id);
         },
-				onClickCancelToast: function() {
+				onClickCancelToast: function() { // you get the idea
 					this.showCancelToast = false;
 					clearTimeout(this.showCancelToastTimeout);
 					var id = Math.floor(Math.random() * 100000); // magic is happening
@@ -640,7 +750,7 @@ var App = new Vue({
                 top: bit.top
             });
         },
-        notSaved: function() {
+        notSaved: function() { // what the fuck
             return Object.keys(Utils.setTimeoutUnique()).length > 0
         }
     }
@@ -652,3 +762,5 @@ View.initializeEvents();
 /* tests:
 assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOOPAI');
 */
+
+// woohoo
