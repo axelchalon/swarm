@@ -571,10 +571,10 @@ var App = new Vue({
     el: '#app',
     data: {
         screen: 'loading', // 'loading' | 'active' | 'error'
-        roomName: undefined,
         firstConnection: true,
 				noInternet: false,
         flags: [],
+        roomName: null,
         socket: undefined,
 				cancelToastBit: {},
 				showCancelToast: false,
@@ -583,87 +583,33 @@ var App = new Vue({
     },
     methods: {
         initializeSocketEvents: function() {
-            // hello server.js (the node server is also called server.js, hmm)
-            if (location.hostname == 'swarm.ovh' || 1)
-                this.socket = io.connect('https://dashpad.me:1336');
-            else
-                this.socket = io.connect('http://127.0.0.1:1336');
-
-                // bam les fromCalback
-                // streams
-            this.socket.on('connect_error', (e) => {
-								if (this.firstConnection) {
-                                    // some stream magic
-                                    // LostConnection.without(Server.EstblishedConnection)
-                                    // <> (and if the other is empty)
-									debug('sockets')('Could not connect')
-                	this.screen = 'error'
-								}
-								else if (!this.noInternet){
-									debug('sockets')('Lost connection')
-									this.noInternet = true;
-                                    // ah, server.js changes the globalState?
-                                    // no, simply use Server.LostConnection.next()
-									View.setReadOnly();
-								}
-            });
-
-            this.socket.on('connect', () => {
-                // Server.EstablishedConnection.next()
-                // use streams for this also
-                if (!this.firstConnection) {
-                    debug('sockets')('Reconnected')
-                    this.socket.emit('swarm', this.roomName);
-                    return;
-                }
-                this.firstConnection = false; // STREAAMS
-                debug('sockets')('Connected'); // yay debug
-
-                // The following executed only once
-
-                // in view.js
-                // inception all of this
-                // view.js first triggered in the beginning of times
-                // Client.EstablishConnectionToServer/Ready/..
-                // no; server.js does this
-                // doesn't matter if he accesses the url
-                var [_, roomName, flagsString] = window.location.href.match(/\/([^/+*]*)([+*]*)$/)
-                this.roomName = roomName;
-                this.flags = flagsString.split('').reduce((acc, flagLetter) => {
-                    var assoc = {
-                        '+': 'plus',
-                        '*': 'secret'
-                    };
-                    if (flagLetter in assoc) acc[assoc[flagLetter]] = true;
-                    return acc;
-                }, {});
-								debug('logic')('Room', this.roomName)
-								debug('logic')('Flags', this.flags)
-
-                this.socket.emit('swarm', this.roomName);
-
-                // well this is still view-y stuff
-                if ('secret' in this.flags) {
+          
+            events.client.pad.onValue(p => {
+                this.roomName = p.pad;
+                if ('secret' in p.flags) {
                     window.history.pushState({}, null, '/');
-                } else if (this.roomName.length){
-                    document.title = this.roomName + ' – Dashpad';
+                } else if (p.pad.length){
+                    document.title = p.pad + ' – Dashpad'; // todo else
                 }
             });
 
-            // onsocketon
-            // ou: .. = fromSocket
-            // Server.ConnectedUsersCount
-            this.socket.on('connectedUsersCount', (count) => {
-              debug('sockets')('Received connectedUsersCount', count);
-              this.connectedUsersCount = count;
+            // First connection failed
+            events.server.disconnected.takeUntil(events.server.connected).onValue(e => {
+                this.screen = 'error'
             });
 
-            // view: do not refresh if states are the same, hashdiff it somehow
-            this.socket.on('catchUp', (bits) => {
-                // Server.CatchUp = ...
-                // view.js: Server.catchUp.subscribe...
-                debug('sockets')('Catching up')
-								this.noInternet = false; // what are you
+            events.server.disconnected.skipUntil(events.server.connected).onValue(e => {
+                this.noInternet = true;
+                View.setReadOnly(); // todo meh
+            });
+
+            events.server.connected_users_count.onValue(count => {
+                this.connectedUsersCount = count;
+            });
+
+            // view: todo do not refresh if states are the same, hashdiff it somehow
+            events.server.bits_dump.onValue(bits => {
+                this.noInternet = false; // what are you
                 View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
                 $.each(bits, function(i, bit) {
                     View.appendBit({
@@ -678,41 +624,31 @@ var App = new Vue({
             // @todo encodage
 
             //idem
-            this.socket.on('tempIdIsId', (obj) => {
-                debug('sockets')('Received tempIdIsId', obj);
+            events.server.bit_temp_id_is_id.onValue(obj => {
                 View.tempIdIsId(obj.temp_id, obj.id);
             });
 
-            // idem
-            this.socket.on('new', (bit) => {
-                debug('sockets')('Received new', bit);
-                // view.js subscribe
+            events.server.bit_new.onValue(bit => {
                 View.appendBit({
                     left: bit.left,
                     top: bit.top,
-										text: bit.text || ''
+                    text: bit.text || ''
                 }, bit.id)
             });
 
-            // idem
-            this.socket.on('move', function(updatedBit) {
-                debug('sockets')('Received move', updatedBit);
+            events.server.bit_move.onValue(updatedBit => {
                 View.moveBit(updatedBit)
             });
 
-            // idem
-            this.socket.on('delete', function(id) {
-                debug('sockets')('Received delete', id);
+            events.server.bit_delete.onValue(id => {
                 View.deleteBit({
                     id: id
                 });
             });
 
-            // idem, Server.EditBit
-            this.socket.on('edit', function(bit) {
-                debug('sockets')('Received edit', bit);
+            events.server.bit_edit.onValue(bit => {
                 View.editBit(bit);
-            });
+            })
         },
         clientDeletedBit: function(bit) { // eh
 					if (bit.text) {
