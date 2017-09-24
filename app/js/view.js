@@ -1,5 +1,7 @@
 'use strict';
 
+var dv = debug('events-view');
+
 if ( /mobile/i.test(navigator.userAgent)) {
   (function($) {
       $.fn.offsetOld = $.fn.offset;
@@ -127,21 +129,25 @@ var View = {
     initializeEvents: function() {
         var thisView = this;
 
-        $('#bit-holder').on('mousedown', '.bit__delete', function(e) {
-            // issue: app contient la logique serveur & la logique vue front
-
-            // Events.Client.DeleteBit.next("some deleted value"); .trigger ...
-
-            // this will be the data of the stream
-            App.clientDeletedBit({
-                id: $(e.target).parent().data('id'),
-                text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
-                left: $(e.target).parent().css('left'),
-                top: $(e.target).parent().css('top')
-              })
+        // to solve circular dependency: declare client first, then server; subscribe after?
+        // ou sinon utiliser un mécanisme qui call que une fois que c'est défini
+        events.client.bit_deleted = $('#bit-holder').asEventStream('mousedown', '.bit__delete').map(e => ({
+            id: $(e.target).parent().data('id'),
+            text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
+            left: $(e.target).parent().css('left'),
+            top: $(e.target).parent().css('top'),
+            $bit: $(e.target).parent()
+        })).doAction(bit => dv('Client deleted bit', bit));
+        events.client.bit_deleted.onValue(bit => {
+            if (bit.text) {
+                this.cancelToastBit = Object.assign({},bit);
+                this.showCancelToast = true;
+                // this.showCancelToastTimeout = setTimeout(() => {
+                //  	this.showCancelToast = false; }, 5000)
+            }
 
             // remove following and put it in the "event subscribe" section of the file
-            thisView.delete$Bit($(e.target).parent())
+            thisView.delete$Bit(bit.$bit)
             return true;
         })
 
@@ -628,7 +634,8 @@ var App = new Vue({
                 View.tempIdIsId(obj.temp_id, obj.id);
             });
 
-            events.server.bit_new.onValue(bit => {
+            events.server.bit_created.onValue(bit => {
+                ds('Bit was created; creating bit in view.')
                 View.appendBit({
                     left: bit.left,
                     top: bit.top,
@@ -636,28 +643,22 @@ var App = new Vue({
                 }, bit.id)
             });
 
-            events.server.bit_move.onValue(updatedBit => {
+            events.server.bit_moved.onValue(updatedBit => {
+                dv('Bit was moved; moving bit in view.')
                 View.moveBit(updatedBit)
             });
 
-            events.server.bit_delete.onValue(id => {
+            events.server.bit_deleted.onValue(id => {
+                dv('Bit was deleted; removing bit from view.')
                 View.deleteBit({
                     id: id
                 });
             });
 
-            events.server.bit_edit.onValue(bit => {
+            events.server.bit_edited.onValue(bit => {
+                dv('Bit was edited; updating bit in view.')
                 View.editBit(bit);
             })
-        },
-        clientDeletedBit: function(bit) { // eh
-					if (bit.text) {
-						this.cancelToastBit = Object.assign({},bit);
-						this.showCancelToast = true;
-						// this.showCancelToastTimeout = setTimeout(() => {
-						//  	this.showCancelToast = false; }, 5000)
-					}
-          this.socket.emit('delete', bit.id);
         },
 				onClickCancelToast: function() { // you get the idea
 					this.showCancelToast = false;
@@ -700,3 +701,5 @@ assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOO
 */
 
 // woohoo
+
+callAfterView();

@@ -19,7 +19,7 @@ var Config = {
 // dépend si on a accès à d'autres trucs de server ou non
 // donc sûrement Events.Server
 
-var d = debug('events-server');
+var ds = debug('events-server');
 var socket;
 
 if (location.hostname == 'swarm.ovh' || 1)
@@ -27,18 +27,25 @@ if (location.hostname == 'swarm.ovh' || 1)
 else
     socket = io.connect('http://127.0.0.1:1336');
 
-events.server.connected = Bacon.fromEvent(socket, 'connect').doAction(() => d('[Connected]'));
+events.server.connected = Bacon.fromEvent(socket, 'connect').doAction(() => ds('[Connected]'));
 events.server.connected.combine(events.client.pad, (c,pad) => ({c, pad: pad.pad})).onValue(({c,pad}) => {
-    d('[Emitting] Emitting \'swarm\' event');
+    ds('[Emitting] Emitting \'swarm\' event');
     socket.emit('swarm', pad);
 });
 
-events.server.disconnected = Bacon.fromEvent(socket, 'connect_error').doAction(() => d('[Disconnected]'));
-events.server.connected_users_count = Bacon.fromEvent(socket, 'connectedUsersCount').toProperty().doAction((c) => d('[Received] User count: ', c));
-events.server.bits_dump = Bacon.fromEvent(socket, 'catchUp').doAction(u => d('[Received] Caught up',u));
-events.server.bit_temp_id_is_id = Bacon.fromEvent(socket, 'tempIdIsId').doAction(x => d('[Received] Temp ID is ID',x));
-events.server.bit_new = Bacon.fromEvent(socket, 'new').doAction(b => d('[Received] New bit', b));
-events.server.bit_move = Bacon.fromEvent(socket, 'move').doAction(b => d('[Received] Bit was moved', b));
-events.server.bit_delete = Bacon.fromEvent(socket, 'delete').doAction(b => d('[Received] Bit was deleted', b));
-events.server.bit_edit = Bacon.fromEvent(socket, 'edit').doAction(b => d('[Received] Bit was edited', b));
+events.server.disconnected = Bacon.fromEvent(socket, 'connect_error').doAction(() => ds('[Disconnected]'));
+events.server.connected_users_count = Bacon.fromEvent(socket, 'connectedUsersCount').toProperty().doAction((c) => ds('[Received] User count: ', c));
+events.server.bits_dump = Bacon.fromEvent(socket, 'catchUp').doAction(u => ds('[Received] Caught up',u));
+events.server.bit_temp_id_is_id = Bacon.fromEvent(socket, 'tempIdIsId').doAction(x => ds('[Received] Temp ID is ID',x));
+events.server.bit_created = Bacon.fromEvent(socket, 'new').doAction(b => ds('[Received] New bit', b));
+events.server.bit_moved = Bacon.fromEvent(socket, 'move').doAction(b => ds('[Received] Bit was moved', b));
+events.server.bit_deleted = Bacon.fromEvent(socket, 'delete').doAction(b => ds('[Received] Bit was deleted', b));
+events.server.bit_edited = Bacon.fromEvent(socket, 'edit').doAction(b => ds('[Received] Bit was edited', b));
 
+// Subscriptions to client
+var callAfterView = () => {
+events.client.bit_deleted.onValue(bit => {
+    ds('[Emitting] Client deleted bit; emitting \'delete\' event');
+    this.socket.emit('delete', bit.id);
+})
+};
