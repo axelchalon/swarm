@@ -151,13 +151,12 @@ var View = {
             return true;
         })
 
+        // todo pointer events none on canvas when no internet
+        // events.client.bit_created = $('#canvas').asEventStream('mousedown').filter(function(e) { return e.target == this})
+        // events.client.bit_created.and() .. no internet
+        // ou bloquer avant/autrement
+
         $('#canvas').on('mousedown', function(e) {
-						if ($(this).hasClass('no-internet')) // this apparently doesn't work
-							return;
-
-            if (e.target !== this)
-                return;
-
             var parentOffset = $(this).offset();
             var relX = e.pageX - parentOffset.left;
             var relY = e.pageY // - parentOffset.top - 5;
@@ -170,6 +169,8 @@ var View = {
 
             var id = Math.floor(Math.random() * 100000); // magic is happening
 
+            // --- TODO CONTINUE HERE ---
+            
             // trigger a stream instead (always: UI dom event => stream => ui response)
             thisView.appendBit({
                 left: relX,
