@@ -50,6 +50,7 @@ var callAfterView = () => {
     })
     
     events.client.bit_created.onValue(bit => {
+        bit.id = bit.bit_client_id;
         this.socket.emit('new', bit); //todo wait until edit ?
     })
 
