@@ -152,45 +152,28 @@ var View = {
         })
 
         // todo pointer events none on canvas when no internet
-        // events.client.bit_created = $('#canvas').asEventStream('mousedown').filter(function(e) { return e.target == this})
-        // events.client.bit_created.and() .. no internet
-        // ou bloquer avant/autrement
-
-        $('#canvas').on('mousedown', function(e) {
-            var parentOffset = $(this).offset();
+        events.client.bit_created = $('#canvas').asEventStream('mousedown').filter(e => e.target == $('#canvas').get(0)).doAction('.preventDefault').map(function(e) {    
+            var parentOffset = $(e.target).offset();
             var relX = e.pageX - parentOffset.left;
-            var relY = e.pageY // - parentOffset.top - 5;
-
-            relY -= 35; // top margin
-
+            var relY = e.pageY - 35 // top margin;; - parentOffset.top - 5;
+            
             // Grid
             relX = Math.round(relX / thisView.GRID_X) * thisView.GRID_X
             relY = Math.round(relY / thisView.GRID_Y) * thisView.GRID_Y
+            var bit_client_id = Math.floor(Math.random() * 100000); // magic is happening
+            return {left: relX, top: relY, bit_client_id: bit_client_id};
+        }).doAction(bit => dv('Client created bit', bit));
+        // events.client.bit_created.and() .. no internet
+        // ou bloquer avant/autrement
 
-            var id = Math.floor(Math.random() * 100000); // magic is happening
-
-            // --- TODO CONTINUE HERE ---
-            
-            // trigger a stream instead (always: UI dom event => stream => ui response)
+        events.client.bit_created.onValue(bit => {
             thisView.appendBit({
-                left: relX,
-                top: relY
-            }, id, true);
+                left: bit.left,
+                top: bit.top
+            }, bit.bit_client_id, true);
+        })
 
-            // @todo callback with the DOM element to assign the id without tempId ?
-            // App.clientCreatedBit(bit, function(id) { thisElement.data('id',id) })
-            // app socket handling needs to be request/response style
-            // but what about handling of the client bit without id before this?
-
-            // use some clever rx tricks to map clientId to serverId (for example store the data UNTIL stream clientIdIsServerId FOR DATA clientId !!! or combinelatest with; and the hydration fires a lot)
-            App.clientCreatedBit({
-                id: id,
-                top: relY,
-                left: relX
-            });
-            return false;
-        });
-
+        // todo repasser
 				$('#bit-holder').on('focus', '.bit__text', (e) => {
                     // [bacon.js] cascadememory could be a module that listens to Client.FocusOnBitText which is $madeFromDom
                     // in which case
@@ -422,7 +405,7 @@ var View = {
             $bit.attr('data-tempid', id) // rather than .data() so that we can search for an id using CSS selectors
         } else
             $bit.attr('data-id', id) // rather than .data() so that we can search for an id using CSS selectors
-
+ 
         $bit.find('.bit__text').focusout(this.deleteIfEmpty) // global DOM event rather
         // keep the cb name 
     },
@@ -672,9 +655,6 @@ var App = new Vue({
 					}, id, true)
 					this.clientCreatedBit(this.cancelToastBit)
 				},
-        clientCreatedBit: function(bit) {
-            this.socket.emit('new', bit); //todo wait until edit ?
-        },
         clientEditedBit: function(bit) {
             this.socket.emit('edit', {
                 id: bit.id,

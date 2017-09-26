@@ -44,8 +44,13 @@ events.server.bit_edited = Bacon.fromEvent(socket, 'edit').doAction(b => ds('[Re
 
 // Subscriptions to client
 var callAfterView = () => {
-events.client.bit_deleted.onValue(bit => {
-    ds('[Emitting] Client deleted bit; emitting \'delete\' event');
-    this.socket.emit('delete', bit.id);
-})
+    events.client.bit_deleted.onValue(bit => {
+        ds('[Emitting] Client deleted bit; emitting \'delete\' event');
+        this.socket.emit('delete', bit.id);
+    })
+    
+    events.client.bit_created.onValue(bit => {
+        this.socket.emit('new', bit); //todo wait until edit ?
+    })
 };
+
