@@ -132,7 +132,7 @@ var View = {
         // to solve circular dependency: declare client first, then server; subscribe after?
         // ou sinon utiliser un mécanisme qui call que une fois que c'est défini
         events.client.bit_deleted = $('#bit-holder').asEventStream('mousedown', '.bit__delete').map(e => ({
-            id: $(e.target).parent().data('id'),
+            id: $(e.target).parent().data('bit-server-id'),
             text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
             left: $(e.target).parent().css('left'),
             top: $(e.target).parent().css('top'),
@@ -169,8 +169,9 @@ var View = {
         events.client.bit_created.onValue(bit => {
             thisView.appendBit({
                 left: bit.left,
-                top: bit.top
-            }, bit.bit_client_id, true);
+                top: bit.top,
+                bit_client_id: bit.bit_client_id,
+            }, true);
         })
 
         // todo repasser
@@ -248,7 +249,7 @@ var View = {
                 var newY = parseInt($el[0].style.top)+difference;
                 $el.css('top', newY + 'px');
                 App.clientMovedBit({
-                  id: $el.attr('data-id'),
+                  id: $el.attr('data-bit-server-id'),
                   top: newY,
                   left: $el[0].style.left
                 })
@@ -271,7 +272,7 @@ var View = {
           if (e.altKey && e.keyCode >= 37 && e.keyCode <= 40) {
 
             var $bit = $(e.target).is('.bit__text') && $(e.target).closest('.bit');
-            if ($bit && $bit.attr('data-id')) {
+            if ($bit && $bit.attr('data-bit-server-id')) {
               var newX = parseInt($bit[0].style.left);
               var newY = parseInt($bit[0].style.top);
 
@@ -287,7 +288,7 @@ var View = {
               $bit.css('left', newX + 'px');
               $bit.css('top', newY + 'px');
               App.clientMovedBit({
-                id: $bit.attr('data-id'),
+                id: $bit.attr('data-bit-server-id'),
                 top: newY,
                 left: newX
               })
@@ -298,45 +299,45 @@ var View = {
           }
         });
 
-        // Events.Client.EditedBit = fromDom('bit-holder','input','bit__text').map()
-        // and use some clientId<>serverId stream magic maybe
-        $('#bit-holder').on('input', '.bit__text', (e) => {
+        // todo "bits-holder" pas "bit-holder"
+        // todo throttle ici ; ne pas calculer le getplaintext à chaque fois
+        events.client.bit_edited = $('#bit-holder').asEventStream('input', '.bit__text').map(e => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
+            var plaintext = this.getPlaintextFrom$BitMessage($bit_message);
             var $bit = $bit_message.closest('.bit')
 
-            // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
-            var uniqid = $bit.data('tempid') || $bit.data('id');
+            if (typeof($bit.data('bit-server-id')) === 'undefined')
+                return {
+                    text: plaintext,
+                    bit_client_id: $bit.data('bit-client-id')   
+                }
+            else
+                return {
+                    text: plaintext,
+                    bit_server_id: $bit.data('bit-server-id')
+                }
+        }).doAction(bit => dv('Client edited bit', bit));
 
+        // flow: dire qu'on attend Bit_ServerId (précise)
+            
             // this will happen in server.js
             // Events.Server.ClientEditedBitSent
             // Events.Client.EditedBit.mergeWithLatestValueFromStream(clientIdIsServerId.filter(clientId)).debounce(x).subscribe
             // @TODO lire à fond les docs de rxjs et tout pour comprendre les patterns
-            Utils.setTimeoutUniqueRepeatUntil(() => {
-                if (typeof($bit.data('id')) === 'undefined')
-                    return false
 
-                App.clientEditedBit({
-                    id: $bit.data('id'),
-                    text: this.getPlaintextFrom$BitMessage($bit_message)
-                });
 
-                //  Events.Server.ClientEditedBitSent.subscribe() =>
-                $('[data-id=' + $bit.data('id') + ']').data('shared',this.getPlaintextFrom$BitMessage($bit_message));
-            }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'edit#' + uniqid)
-
-        });
-
-        window.onbeforeunload = function() {
-            if (App.notSaved())
-                return 'Please wait a short while so we can save your message.';
-            else
-                return null;
-        }
+        // window.onbeforeunload = function() {
+        //     if (App.notSaved())
+        //         return 'Please wait a short while so we can save your message.';
+        //     else
+        //         return null;
+        // }
     },
     // Events.Server.BitCreated.subscribe
     // Events.Client/View(aka).BitCreated.subscribe
-    appendBit: function(bit, id, created_by_user) {
+    appendBit: function(bit, created_by_user) {
+        var id = bit.bit_client_id || bit.bit_server_id;
         var thisView = this;
         var $bit = $(!window.chrome ? $('.template-bit-nonchrome').html() : $('.template-bit-chrome').html()) // or children.clone
             .css({
@@ -382,15 +383,15 @@ var View = {
                     var $bit = $(this)
 
                     // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
-                    var uniqid = $bit.data('tempid') || $bit.data('id');
+                    var uniqid = $bit.data('bit-client-id') || $bit.data('bit-server-id');
 
                     // events.client.movedbit.next()
                     // dans server.js, throttle, mais c'est déjà fait
                     Utils.setTimeoutUniqueRepeatUntil(() => {
-                        if (typeof($bit.data('id')) === 'undefined')
+                        if (typeof($bit.data('bit-server-id')) === 'undefined')
                             return false
                         App.clientMovedBit({
-                            id: $bit.data('id'),
+                            id: $bit.data('bit-server-id'),
                             left: ui.position.left,
                             top: ui.position.top
                         })
@@ -402,9 +403,9 @@ var View = {
         //not sure, if both the streams are subscribed by the same callback
         if (created_by_user) {
             $bit.find('.bit__text').focus();
-            $bit.attr('data-tempid', id) // rather than .data() so that we can search for an id using CSS selectors
+            $bit.attr('data-bit-client-id', id) // rather than .data() so that we can search for an id using CSS selectors
         } else
-            $bit.attr('data-id', id) // rather than .data() so that we can search for an id using CSS selectors
+            $bit.attr('data-bit-server-id', id) // rather than .data() so that we can search for an id using CSS selectors
  
         $bit.find('.bit__text').focusout(this.deleteIfEmpty) // global DOM event rather
         // keep the cb name 
@@ -535,10 +536,6 @@ var View = {
 				$bit.remove();
 			}, 500)
 		},
-        // server.js logic; use a single stream with {temp_id, id} ?
-    tempIdIsId: function(temp_id, id) {
-        $('[data-tempid=' + temp_id + ']').attr('data-id', id);
-    },
     // subscribe focusout delete if empty, make it a module
     deleteIfEmpty: function(e) {
         if ($(this).text().length < 1) {
@@ -605,17 +602,17 @@ var App = new Vue({
                     View.appendBit({
                         left: bit.left,
                         top: bit.top,
-                        text: bit.text
-                    }, bit.id)
+                        text: bit.text,
+                        bit_server_id: bit.id
+                    })
                 });
                 this.screen = 'active'
             });
 
             // @todo encodage
 
-            //idem
             events.server.bit_temp_id_is_id.onValue(obj => {
-                View.tempIdIsId(obj.temp_id, obj.id);
+                $('[data-bit-client-id=' + obj.temp_id + ']').attr('data-bit-server-id', obj.id);
             });
 
             events.server.bit_created.onValue(bit => {
@@ -623,8 +620,9 @@ var App = new Vue({
                 View.appendBit({
                     left: bit.left,
                     top: bit.top,
-                    text: bit.text || ''
-                }, bit.id)
+                    text: bit.text || '',
+                    bit_server_id: bit.id,
+                })  // utiliser flow
             });
 
             events.server.bit_moved.onValue(updatedBit => {
@@ -651,16 +649,11 @@ var App = new Vue({
 					View.appendBit({
 							left: this.cancelToastBit.left,
 							top: this.cancelToastBit.top,
-							text: this.cancelToastBit.text
-					}, id, true)
+							text: this.cancelToastBit.text,
+                            bit_client_id: id
+					}, true)
 					this.clientCreatedBit(this.cancelToastBit)
 				},
-        clientEditedBit: function(bit) {
-            this.socket.emit('edit', {
-                id: bit.id,
-                text: bit.text
-            });
-        },
         clientMovedBit: function(bit) {
             this.socket.emit('move', {
                 id: bit.id,
@@ -683,4 +676,9 @@ assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOO
 
 // woohoo
 
+// !! indicateur de loading :)
 callAfterView();
+
+events.server.client_edited_bit_sent.onValue(bit => {
+    $('[data-bit-server-id=' + bit.bit_server_id + ']').data('shared',bit.text);
+});

@@ -46,11 +46,28 @@ events.server.bit_edited = Bacon.fromEvent(socket, 'edit').doAction(b => ds('[Re
 var callAfterView = () => {
     events.client.bit_deleted.onValue(bit => {
         ds('[Emitting] Client deleted bit; emitting \'delete\' event');
-        this.socket.emit('delete', bit.id);
+        this.socket.emit('delete', bit.bit_server_id);
     })
     
     events.client.bit_created.onValue(bit => {
         this.socket.emit('new', bit); //todo wait until edit ?
+    })
+
+    events.server.client_edited_bit_sent = events.client.bit_edited.throttle(500)
+    .flatMapLatest(bit => { // why latest
+        if (!bit.bit_server_id) {
+            var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
+            return Bacon.constant(bit).combine(assocStream,(bit,obj) => Object.assign({}, bit, {bit_server_id: obj.id}))
+        } else {
+            return Bacon.constant(bit);
+        }
+    })
+    .doAction(bit => {
+        ds('Sending edit to server')
+        this.socket.emit('edit', {
+            id: bit.bit_server_id,
+            text: bit.text
+        });
     })
 };
 
