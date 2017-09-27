@@ -1,4 +1,4 @@
-var events = {server: {}, client: {}};
+var events = {server: {}, client: {}, view: {}};
 
 // # EVENTS
 // todo stream roomname pour pouvoir changer de room ez-li

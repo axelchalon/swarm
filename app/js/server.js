@@ -54,17 +54,40 @@ var callAfterView = () => {
         this.socket.emit('new', bit); //todo wait until edit ?
     })
 
-    events.server.client_edited_bit_sent = events.client.bit_edited.throttle(500)
-    .flatMapLatest(bit => { // why latest
+    events.client.bit_moved
+    .flatMapLatest(bit => { // todo DRY ==> .waitForServerId()
         if (!bit.bit_server_id) {
             var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
-            return Bacon.constant(bit).combine(assocStream,(bit,obj) => Object.assign({}, bit, {bit_server_id: obj.id}))
+            return Bacon.constant(bit).combine(assocStream,(bit,bit_server_id) => Object.assign({}, bit, {bit_server_id}))
         } else {
             return Bacon.constant(bit);
         }
     })
-    .doAction(bit => {
-        ds('Sending edit to server')
+    .onValue(bit => {
+        ds('Sending move to server', bit);
+        this.socket.emit('move', {
+            id: bit.bit_server_id,
+            left: bit.left,
+            top: bit.top
+        });
+    })
+
+    // todo check workflow
+    events.server.client_edited_bit_sent = events.client.bit_edited.throttle(500)
+    .flatMapLatest(bit => { // why latest
+        if (!bit.bit_server_id) {
+            var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
+            return Bacon.constant(bit).combine(assocStream,(bit,bit_server_id) => Object.assign({}, bit, {bit_server_id}))
+        } else {
+            return Bacon.constant(bit);
+        }
+    });
+
+    // et add +10ms pour pas que bacon.constant affiche "loading" et ensuite "not loading"
+    // (s'assurer l'ordre)
+
+    events.server.client_edited_bit_sent.onValue(bit => {
+        ds('Sending edit to server', bit);
         this.socket.emit('edit', {
             id: bit.bit_server_id,
             text: bit.text

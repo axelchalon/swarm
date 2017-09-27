@@ -1,5 +1,6 @@
 'use strict';
 
+var dc = debug('events-client');
 var dv = debug('events-view');
 
 if ( /mobile/i.test(navigator.userAgent)) {
@@ -137,7 +138,7 @@ var View = {
             left: $(e.target).parent().css('left'),
             top: $(e.target).parent().css('top'),
             $bit: $(e.target).parent()
-        })).doAction(bit => dv('Client deleted bit', bit));
+        })).doAction(bit => dc('Client deleted bit', bit));
         events.client.bit_deleted.onValue(bit => {
             if (bit.text) {
                 this.cancelToastBit = Object.assign({},bit);
@@ -162,7 +163,7 @@ var View = {
             relY = Math.round(relY / thisView.GRID_Y) * thisView.GRID_Y
             var bit_client_id = Math.floor(Math.random() * 100000); // magic is happening
             return {left: relX, top: relY, bit_client_id: bit_client_id};
-        }).doAction(bit => dv('Client created bit', bit));
+        }).doAction(bit => dc('Client created bit', bit));
         // events.client.bit_created.and() .. no internet
         // ou bloquer avant/autrement
 
@@ -173,6 +174,43 @@ var View = {
                 bit_client_id: bit.bit_client_id,
             }, true);
         })
+
+                
+        events.view.bit_shortcut_moved = $(document).asEventStream('keydown', '.bit__text')
+            .filter(e => e.altKey && e.keyCode >= 37 && e.keyCode <= 40)
+            .doAction('.preventDefault')
+            .map((e) => {
+                var $bit = $(e.target).closest('.bit')
+                var newX = parseInt($bit[0].style.left);
+                var newY = parseInt($bit[0].style.top);
+
+                if (e.keyCode == 37) // left
+                newX -= this.GRID_X;
+                else if (e.keyCode == 38) // up
+                newY -= this.GRID_Y;
+                else if (e.keyCode == 39) // right
+                newX += this.GRID_X;
+                else if (e.keyCode == 40) // down
+                newY += this.GRID_Y;
+
+                $bit.css('left', newX + 'px'); // todo dry ?
+                $bit.css('top', newY + 'px');
+
+                // @todo dry ".hydrateWithServerIdOrClientId"
+                if (typeof($bit.data('bit-server-id')) === 'undefined')
+                    return {   
+                        left: newX,
+                        top: newY,
+                        bit_client_id: $bit.data('bit-client-id')   
+                    }
+                else
+                    return {
+                        left: newX,
+                        top: newY,
+                        bit_server_id: $bit.data('bit-server-id')
+                    }
+            })
+            .doAction(bit => dv('View moved bit using Alt+ArrowKey shortcut', bit));
 
         // todo repasser
 				$('#bit-holder').on('focus', '.bit__text', (e) => {
@@ -257,47 +295,6 @@ var View = {
             }
         });
 
-        // fromDom(keydown,'document','.bit__text').filter(e => e.alt...).map(() => {top: x, left: y}).redirectTo(ClientMovedBit)
-        // ou plutôt que redirectTo, c'est le résultat en fait qui est ClientMovedBit!
-        // ClientMovedBit = ...
-        // plutôt qu'utiliser un standard min/maj pour savoir si c'est exposed ou pas,
-        // utiliser Events.View.ClientMovedBit = ...
-        // parce que ClientMovedBit est utilisé après aussi par drag, plutôt uilisr next que déclarer
-        // :)
-        // et evtl déclarer tous les evts au début (juste la structure du json, avec :null)
-        // et freeze!!!
-        // hmmm ce serait cool de définir le pattern de ce que l'event renvoie, tout en haut aussi
-        // YES
-        $(document).on('keydown', (e) => {
-          if (e.altKey && e.keyCode >= 37 && e.keyCode <= 40) {
-
-            var $bit = $(e.target).is('.bit__text') && $(e.target).closest('.bit');
-            if ($bit && $bit.attr('data-bit-server-id')) {
-              var newX = parseInt($bit[0].style.left);
-              var newY = parseInt($bit[0].style.top);
-
-              if (e.keyCode == 37) // left
-                newX -= this.GRID_X;
-              else if (e.keyCode == 38) // up
-                newY -= this.GRID_Y;
-              else if (e.keyCode == 39) // right
-                newX += this.GRID_X;
-              else if (e.keyCode == 40) // down
-                newY += this.GRID_Y;
-
-              $bit.css('left', newX + 'px');
-              $bit.css('top', newY + 'px');
-              App.clientMovedBit({
-                id: $bit.attr('data-bit-server-id'),
-                top: newY,
-                left: newX
-              })
-            }
-
-            // possible de call cascade
-            e.preventDefault();
-          }
-        });
 
         // todo "bits-holder" pas "bit-holder"
         // todo throttle ici ; ne pas calculer le getplaintext à chaque fois
@@ -317,15 +314,7 @@ var View = {
                     text: plaintext,
                     bit_server_id: $bit.data('bit-server-id')
                 }
-        }).doAction(bit => dv('Client edited bit', bit));
-
-        // flow: dire qu'on attend Bit_ServerId (précise)
-            
-            // this will happen in server.js
-            // Events.Server.ClientEditedBitSent
-            // Events.Client.EditedBit.mergeWithLatestValueFromStream(clientIdIsServerId.filter(clientId)).debounce(x).subscribe
-            // @TODO lire à fond les docs de rxjs et tout pour comprendre les patterns
-
+        }).doAction(bit => dc('Client edited bit', bit));
 
         // window.onbeforeunload = function() {
         //     if (App.notSaved())
@@ -626,19 +615,19 @@ var App = new Vue({
             });
 
             events.server.bit_moved.onValue(updatedBit => {
-                dv('Bit was moved; moving bit in view.')
+                dc('Bit was moved; moving bit in view.')
                 View.moveBit(updatedBit)
             });
 
             events.server.bit_deleted.onValue(id => {
-                dv('Bit was deleted; removing bit from view.')
+                dc('Bit was deleted; removing bit from view.')
                 View.deleteBit({
                     id: id
                 });
             });
 
             events.server.bit_edited.onValue(bit => {
-                dv('Bit was edited; updating bit in view.')
+                dc('Bit was edited; updating bit in view.')
                 View.editBit(bit);
             })
         },
@@ -654,7 +643,7 @@ var App = new Vue({
 					}, true)
 					this.clientCreatedBit(this.cancelToastBit)
 				},
-        clientMovedBit: function(bit) {
+        clientMovedBit: function(bit) { // @todo del
             this.socket.emit('move', {
                 id: bit.id,
                 left: bit.left,
@@ -676,9 +665,45 @@ assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOO
 
 // woohoo
 
+
+
+
+//// MODULES
+
+/// ALT+ARROW
+
+// fromDom(keydown,'document','.bit__text').filter(e => e.alt...).map(() => {top: x, left: y}).redirectTo(ClientMovedBit)
+// ou plutôt que redirectTo, c'est le résultat en fait qui est ClientMovedBit!
+// ClientMovedBit = ...
+// plutôt qu'utiliser un standard min/maj pour savoir si c'est exposed ou pas,
+// utiliser Events.View.ClientMovedBit = ...
+// parce que ClientMovedBit est utilisé après aussi par drag, plutôt uilisr next que déclarer
+// :)
+// et evtl déclarer tous les evts au début (juste la structure du json, avec :null)
+// et freeze!!!
+// hmmm ce serait cool de définir le pattern de ce que l'event renvoie, tout en haut aussi
+// YES
+// eventsview are internal to view; don't get accessed by server
+
+    /*
+      /*
+    in movedbit
+    App.clientMovedBit({
+            id: $bit.attr('data-bit-server-id'),
+            top: newY,
+            left: newX
+        })
+    */
+
+events.client.bit_moved = events.view.bit_shortcut_moved.doAction(bit => {dc('Client moved bit', bit)}); // @todo clone
+
 // !! indicateur de loading :)
 callAfterView();
 
+// flow: dire qu'on attend Bit_ServerId (précise)
 events.server.client_edited_bit_sent.onValue(bit => {
     $('[data-bit-server-id=' + bit.bit_server_id + ']').data('shared',bit.text);
 });
+
+
+// todo rem bit.id data
