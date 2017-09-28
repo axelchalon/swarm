@@ -407,9 +407,19 @@ var View = {
     },
     //server.editbit.subscribe
     editBit: function(bit) {
+        var mock = true;
+
         var $b = $('[data-id=' + bit.id + '] .bit__text');
+
+        if (mock) $b = $('.bit__text').first();
+
         var shared_text = $('[data-id=' + bit.id + ']').data('shared');
         var old_text = $b.text();
+
+        if (mock) {
+            shared_text = 'WOOPI'
+            old_text = 'WOOPAI'
+        }
         
         if (!Config.OT_ENABLED || !old_text.trim().length || !window.chrome) {
             debug('ot')('Updating contents without using OT');
@@ -419,10 +429,12 @@ var View = {
         
         // function ot: (shared, local, remote)
         if (old_text == shared_text) { 
+            if (mock) bit.text = 'WZOOPI';
             var new_text = bit.text;
             debug('ot')('Old text: ', old_text);
             debug('ot')('New text: ', new_text);
         } else { // local modifications
+            if (mock) bit.text = 'WZOOPI';
             debug('ot')('Remotely edited text has local modifications; merging.');
             var dmp = new diff_match_patch();
             var patch = dmp.patch_make(shared_text, bit.text);
@@ -432,10 +444,12 @@ var View = {
             debug('ot')('Patch from shared to remote: ',patch)
             debug('ot')('Local text: ', old_text);
             debug('ot')('Merged text (apply shared->remote to local) info: ', new_text);
+            console.assert(new_text[0] == 'WZOOPAI');
             new_text = new_text[0];
             // trigger events.client.editedBit
             // @todo when to know if the view stuff is already done before the stream nextd
             // or if it is done on subscribe?
+            if (!mock)
             App.clientEditedBit({id: bit.id, text: new_text});
             // ou si le patch failed, de local à remote
         }
@@ -450,6 +464,8 @@ var View = {
         
         var sel = rangy.getSelection($b.get(0));
         var sel_range = $b.is(':focus') && sel.getAllRanges()[0];
+
+        if (mock) sel_range = {startOffset: 3, endOffset: 4};
         
         if (sel_range) {
             var sel_start = sel_range.startOffset;
@@ -511,6 +527,11 @@ var View = {
         });
         
         if (sel_range) {
+
+            console.assert(sel_start == 4 && sel_end == 5);
+            console.log('ALL GOOD');
+            if (mock) return;
+
             debug('ot')('New text selection offsets: ', sel_start, sel_end);
             var new_sel_range = rangy.createRangyRange($b.get(0));
             new_sel_range.setStartAndEnd($b.get(0).childNodes[0], sel_start, sel_end);
@@ -719,3 +740,7 @@ events.server.client_edited_bit_sent.onValue(bit => {
 // todo rem bit.id data
 
 // test ot quickcheck, cf position curseur quand prepend et apend doit être au même endroit, etc. ; quand prepend et append à des endroits différents en-dehors de la sélection, la sélection doit être la même
+
+setTimeout(() => {
+View.editBit({id: 0});
+},2000)
