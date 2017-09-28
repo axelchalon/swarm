@@ -56,6 +56,12 @@ var Utils = {
         this.setTimeoutUnique(fn_, interval, uniqid)
     },
 
+    // apply shared->remote to local
+    rebase_with_status: function (shared, remote, local) {
+        var dmp = new diff_match_patch();
+        var patch = dmp.patch_make(shared, remote);
+        return dmp.patch_apply(patch, local);
+    },
     // [index,"insert",text]
     // [index,"remove",length]
     getOt: function(from,to) {
@@ -80,6 +86,44 @@ var Utils = {
         }
         
         return ot_steps;        
+    },
+    getNewSelRangeFromOt: function (ot_steps, sel_start, sel_end) {
+        var sel_steps = ot_steps.map(o => {
+            if (o[1] == "insert") {
+                if (o[0] <= sel_start)
+                    sel_start+=o[2].length;
+                
+                if (o[0] < sel_end)
+                    sel_end+=o[2].length;
+            }
+            else {
+                if (o[0] + o[2] < sel_start) { // Range is before selection
+                    sel_start-=o[2];
+                    sel_end-=o[2];
+                } else if (o[0] >= sel_end) { // Range is after selection (?)
+                    
+                } else if (o[0] < sel_start && o[0]+o[2] <= sel_end) { // Range starts before selection, ends within selection
+                    sel_start=o[0]+o[2]; // @@refactor me todo et pas utiliser les -=
+                    sel_start-=o[2];
+                    sel_end-=o[2];
+                } else if (o[0] >= sel_start && o[0]+o[2] <= sel_end) { // Range is within selection
+                    sel_end-=o[2];
+                } else if (o[0] >= sel_start && o[0]+o[2] > sel_end) { // Range starts within selection, ends after selction
+                    sel_end-=sel_end-o[0];
+                } else if (o[0] < sel_start && o[0]+o[2] > sel_end) { // Range starts before selection, ends after selection
+                    sel_start=o[0];
+                    sel_end=o[0];
+                } else { // todo quickcheck ot exhaustive
+                    console.error("Range conditions were thought to be exhaustive but in fact aren't",o[0],o[2],sel_start,sel_end);
+                }
+            }
+            return {sel_start: sel_start, sel_end: sel_end, context: o};
+        });
+        return {
+            new_sel_start: sel_steps[sel_steps.length-1].sel_start,
+            new_sel_end:sel_steps[sel_steps.length-1].sel_end,
+            verbose: sel_steps
+        }
     }
 };
 
@@ -407,19 +451,10 @@ var View = {
     },
     //server.editbit.subscribe
     editBit: function(bit) {
-        var mock = true;
-
         var $b = $('[data-id=' + bit.id + '] .bit__text');
-
-        if (mock) $b = $('.bit__text').first();
 
         var shared_text = $('[data-id=' + bit.id + ']').data('shared');
         var old_text = $b.text();
-
-        if (mock) {
-            shared_text = 'WOOPI'
-            old_text = 'WOOPAI'
-        }
         
         if (!Config.OT_ENABLED || !old_text.trim().length || !window.chrome) {
             debug('ot')('Updating contents without using OT');
@@ -427,114 +462,76 @@ var View = {
             return;
         }
         
-        // function ot: (shared, local, remote)
+        // Get new text
         if (old_text == shared_text) { 
-            if (mock) bit.text = 'WZOOPI';
             var new_text = bit.text;
+            debug('ot')('No unsent local modifications.')
             debug('ot')('Old text: ', old_text);
             debug('ot')('New text: ', new_text);
         } else { // local modifications
-            if (mock) bit.text = 'WZOOPI';
             debug('ot')('Remotely edited text has local modifications; merging.');
-            var dmp = new diff_match_patch();
-            var patch = dmp.patch_make(shared_text, bit.text);
-            var new_text = dmp.patch_apply(patch, old_text);
+            var new_text = Utils.rebase_with_status(shared_text, bit.text, old_text);
             debug('ot')('Shared text: ', shared_text);
             debug('ot')('Remote text: ', bit.text);
-            debug('ot')('Patch from shared to remote: ',patch)
             debug('ot')('Local text: ', old_text);
             debug('ot')('Merged text (apply shared->remote to local) info: ', new_text);
-            console.assert(new_text[0] == 'WZOOPAI');
             new_text = new_text[0];
             // trigger events.client.editedBit
             // @todo when to know if the view stuff is already done before the stream nextd
             // or if it is done on subscribe?
-            if (!mock)
             App.clientEditedBit({id: bit.id, text: new_text});
             // ou si le patch failed, de local à remote
         }
 
+        // Set new text as shared
         $('[data-id=' + bit.id + ']').data('shared',new_text);
 
+        // Get OT
         var ot_steps = Utils.getOt(old_text, new_text); // util the shit out of it
-        
         debug('ot')('Steps: ', ot_steps);
         
+        // Get selection range
         $b.get(0).normalize();
-        
         var sel = rangy.getSelection($b.get(0));
         var sel_range = $b.is(':focus') && sel.getAllRanges()[0];
-
-        if (mock) sel_range = {startOffset: 3, endOffset: 4};
         
+        // Compute new selection range
         if (sel_range) {
-            var sel_start = sel_range.startOffset;
-            var sel_end = sel_range.endOffset;
-            debug('ot')('Old text selection offsets: ', sel_start, sel_end);
+            var old_sel_start = sel_range.startOffset;
+            var old_sel_end = sel_range.endOffset;
+            debug('ot')('Old text selection offsets: ', old_sel_start, old_sel_end);
+            var {new_sel_start, new_sel_end, verbose} = Utils.getNewSelRangeFromOt(ot_steps, old_sel_start, old_sel_end);
+            debug('ot')('New selection range', new_sel_start, new_sel_end, verbose);
         }
         else {
             debug('ot')('No selection in this bit.'); // oh yeah debugs
         }
 
-        // next:
-        // x = getOt()
-        // y = hydrateOtWithSelOt(ot, sel_start,sel_end) ==> [{ot: ["0",insert,"text"]}, sel_ot: {start: -3, end: -2}]
+        // next: @todo
         // !!!use algebraic data types for ot: 
         // data OT = InsertOt Int String | DeleteOt Int Int
+        // utils.getnewselrangefromot([InsertOt 0 "hi", DeleteOt 7 7])
         
+        // Apply OT
         ot_steps.forEach(o => {
             if (o[1] == "insert") {
                 var range = rangy.createRangyRange($b.get(0));
                 range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]);
                 range.insertNode(document.createTextNode(o[2]));
-                if (sel_range) {
-                    if (o[0] <= sel_start)
-                        sel_start+=o[2].length;
-                    
-                    if (o[0] < sel_end)
-                        sel_end+=o[2].length;
-                }
             }
             else {
                 var range = rangy.createRangyRange($b.get(0));
                 range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]+o[2]);
                 range.deleteContents();
-                if (sel_range) {
-                
-                    if (o[0] + o[2] < sel_start) { // Range is before selection
-                        sel_start-=o[2];
-                        sel_end-=o[2];
-                    } else if (o[0] >= sel_end) { // Range is after selection (?)
-                        
-                    } else if (o[0] < sel_start && o[0]+o[2] <= sel_end) { // Range starts before selection, ends within selection
-                        sel_start=o[0]+o[2];
-                        sel_start-=o[2];
-                        sel_end-=o[2];
-                    } else if (o[0] >= sel_start && o[0]+o[2] <= sel_end) { // Range is within selection
-                        sel_end-=o[2];
-                    } else if (o[0] >= sel_start && o[0]+o[2] > sel_end) { // Range starts within selection, ends after selction
-                        sel_end-=sel_end-o[0];
-                    } else if (o[0] < sel_start && o[0]+o[2] > sel_end) { // Range starts before selection, ends after selection
-                        sel_start=o[0];
-                        sel_end=o[0];
-                    } else { // todo quickcheck ot exhaustive
-                        console.error("Range conditions were thought to be exhaustive but in fact aren't",o[0],o[2],sel_start,sel_end);
-                    }
-                    
-                }
             }
             $b.get(0).normalize();
         });
         
+        // Update selection range
         if (sel_range) {
-
-            console.assert(sel_start == 4 && sel_end == 5);
-            console.log('ALL GOOD');
-            if (mock) return;
-
-            debug('ot')('New text selection offsets: ', sel_start, sel_end);
+            debug('ot')('New text selection offsets: ', new_sel_start, new_sel_end);
             var new_sel_range = rangy.createRangyRange($b.get(0));
-            new_sel_range.setStartAndEnd($b.get(0).childNodes[0], sel_start, sel_end);
+            new_sel_range.setStartAndEnd($b.get(0).childNodes[0], new_sel_start, new_sel_end);
             sel.setRanges([new_sel_range]);
         }
     },
@@ -741,6 +738,44 @@ events.server.client_edited_bit_sent.onValue(bit => {
 
 // test ot quickcheck, cf position curseur quand prepend et apend doit être au même endroit, etc. ; quand prepend et append à des endroits différents en-dehors de la sélection, la sélection doit être la même
 
-setTimeout(() => {
-View.editBit({id: 0});
-},2000)
+function test() {
+    var new_text = Utils.rebase_with_status('WOOPI','WOOPAI','WZOOPI')
+    new_text = new_text[0];
+    console.assert(new_text == 'WZOOPAI')
+
+    function test_getNewSelRangeFromOt(tagged_text, ot) {
+        var {sel_start: old_sel_start, sel_end: old_sel_end} = test_getSel(tagged_text)
+        var text = tagged_text.replace(/[\[\]]/g,'');
+        var {new_sel_start: sel_start, new_sel_end: sel_end} = Utils.getNewSelRangeFromOt(ot, old_sel_start, old_sel_end);
+        return {sel_start, sel_end}
+    }
+    function test_getSel(tagged_text) {
+        var sel_start = tagged_text.indexOf('[');
+        var sel_end = tagged_text.indexOf(']')-1;
+        return {sel_start, sel_end};
+    }
+    function test_deep_eql(a,b) {
+        // console.log('deep_eql',a,b,JSON.stringify(a) == JSON.stringify(b))
+        return JSON.stringify(a) == JSON.stringify(b);
+    }
+
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[2,'remove',1]]), test_getSel('AB[DEF]GHI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[2,'remove',2]]), test_getSel('AB[EF]GHI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[2,'remove',4]]), test_getSel('AB[]GHI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[2,'remove',5]]), test_getSel('AB[]HI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[3,'remove',2]]), test_getSel('ABC[F]GHI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[3,'remove',3]]), test_getSel('ABC[]GHI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[3,'remove',4]]), test_getSel('ABC[]HI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[4,'remove',1]]), test_getSel('ABC[DF]GHI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[4,'remove',2]]), test_getSel('ABC[D]GHI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[4,'remove',3]]), test_getSel('ABC[D]HI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[6,'remove',1]]), test_getSel('ABC[DEF]HI')));
+    console.assert(test_deep_eql(test_getNewSelRangeFromOt('ABC[DEF]GHI', [[7,'remove',1]]), test_getSel('ABC[DEF]GI')));
+    console.log('All tests passed.')
+
+    // test properties cf si range n'est pas à l'intérieur alors la newSel est la même etc
+    // ou pour UNE DEL ARBITRAIRE (c'est un seul cas d'utilistion):
+    // (dans le champ des possibles (créer générateur)) la NewSel correspond à {set theory} OldSel \ DelRange
+
+    // console.assert(out of bounds removes ?) dans le code de ot?
+}
