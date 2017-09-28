@@ -73,15 +73,48 @@ var callAfterView = () => {
     })
 
     // todo check workflow
-    events.server.client_edited_bit_sent = events.client.bit_edited.throttle(500)
-    .flatMapLatest(bit => { // why latest
-        if (!bit.bit_server_id) {
+    var client_edited_bit_throttled = events.client.bit_edited.throttle(5);
+    var client_edited_bit_throttled_with_server_id_known_streams = client_edited_bit_throttled.filter(bit => bit.bit_server_id).map(bit => Bacon.constant(bit).first()).doAction(t => dv('Client bit edit throttled with known server id')); // Bacon.once(bit)
+    var client_edited_bit_throttled_with_server_id_unknown_streams = client_edited_bit_throttled
+        .filter(b => !b.bit_server_id)
+        .map(bit => {
             var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
-            return Bacon.constant(bit).combine(assocStream,(bit,bit_server_id) => Object.assign({}, bit, {bit_server_id}))
-        } else {
-            return Bacon.constant(bit);
-        }
-    });
+            return Bacon.constant(bit).combine(assocStream,(bit,bit_server_id) => Object.assign({}, bit, {bit_server_id})).first();
+        })
+        .doAction(t => dv('Client bit edit throttled with unknown server id'));
+    
+    var starts = client_edited_bit_throttled_with_server_id_unknown_streams.map(stream => 'start').doAction(t => dv('Unknown server ID for client edited bit: started waiting...'));
+    var ends = client_edited_bit_throttled_with_server_id_unknown_streams.flatMap(stream => stream.mapEnd('end').filter('end').first()).doAction(t => dv('Unknown server ID for client edited bit: finished waiting...'));
+
+    var starts_count = starts.map(1).scan(0, (x,y) => x + y).doAction(t => dv('Requests count',t));
+    var ends_count = ends.map(1).scan(0, (x,y) => x + y).doAction(t => dv('Responses count',t));
+
+    events.server.loading = ends_count.combine(starts_count, (ends_count, starts_count) => ends_count !== starts_count).doAction(t => dv('Loading ?',t))
+    events.server.client_edited_bit_sent = 
+        client_edited_bit_throttled_with_server_id_known_streams
+        .merge(client_edited_bit_throttled_with_server_id_unknown_streams).flatMapLatest(a => a).doAction(t => dv('Edited bit sent',t)) // @todo notsure about this one
+
+    events.server.loading.onValue(() => 1);
+
+    // var start_loading = events.server.client_edited_bit_with_server_id_unknown;
+
+    // end_loading = events.server.client_edited_bit_with_server_id_unknown.flatMap(stream => stream.mapEnd('end').filter('end').first())
+    // var loading = events.server.client_edited_bit_with_server_id_unknown.map(true).merge(... .map(false))
+    
+    // ==> utiliser le nombre d'évènements. zipWith!
+    // var loading = ends_count.combine(starts_count, (ends_count, starts_count) => ends_count == starts_count)
+
+    // .. pageLoad.merge(beforeChange)
+    
+
+    // loading.delay(200).and(loading)
+
+    
+    // events.server.end_loading = client_edited_bit_sent_pre.scan((acc, cur) => ).doAction(v => ds('End loading.'))
+    // pas besoin : events.server.loading = // true | false
+    
+
+    // & user reduce (check if all complete)
 
     // et add +10ms pour pas que bacon.constant affiche "loading" et ensuite "not loading"
     // (s'assurer l'ordre)

@@ -55,6 +55,9 @@ var Utils = {
         }
         this.setTimeoutUnique(fn_, interval, uniqid)
     },
+
+    // [index,"insert",text]
+    // [index,"remove",length]
     getOt: function(from,to) {
         var dmp = new diff_match_patch();
         var steps = dmp.diff_main(from,to);
@@ -414,6 +417,7 @@ var View = {
             return;
         }
         
+        // function ot: (shared, local, remote)
         if (old_text == shared_text) { 
             var new_text = bit.text;
             debug('ot')('Old text: ', old_text);
@@ -455,6 +459,12 @@ var View = {
         else {
             debug('ot')('No selection in this bit.'); // oh yeah debugs
         }
+
+        // next:
+        // x = getOt()
+        // y = hydrateOtWithSelOt(ot, sel_start,sel_end) ==> [{ot: ["0",insert,"text"]}, sel_ot: {start: -3, end: -2}]
+        // !!!use algebraic data types for ot: 
+        // data OT = InsertOt Int String | DeleteOt Int Int
         
         ot_steps.forEach(o => {
             if (o[1] == "insert") {
@@ -491,7 +501,7 @@ var View = {
                     } else if (o[0] < sel_start && o[0]+o[2] > sel_end) { // Range starts before selection, ends after selection
                         sel_start=o[0];
                         sel_end=o[0];
-                    } else {
+                    } else { // todo quickcheck ot exhaustive
                         console.error("Range conditions were thought to be exhaustive but in fact aren't",o[0],o[2],sel_start,sel_end);
                     }
                     
@@ -660,7 +670,7 @@ App.initializeSocketEvents();
 View.initializeEvents();
 
 /* tests:
-assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOOPAI');
+assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOOPAI'); using Chai
 */
 
 // woohoo
@@ -707,3 +717,5 @@ events.server.client_edited_bit_sent.onValue(bit => {
 
 
 // todo rem bit.id data
+
+// test ot quickcheck, cf position curseur quand prepend et apend doit être au même endroit, etc. ; quand prepend et append à des endroits différents en-dehors de la sélection, la sélection doit être la même
