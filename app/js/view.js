@@ -418,21 +418,12 @@ var View = {
                 stop: function(e, ui) {
                     $(this).removeClass('being-dragged');
                     var $bit = $(this)
-
-                    // purely client; so that the editTimeout refers to the same id after reception of tempIdisId
-                    var uniqid = $bit.data('bit-client-id') || $bit.data('bit-server-id');
-
-                    // events.client.movedbit.next()
-                    // dans server.js, throttle, mais c'est déjà fait
-                    Utils.setTimeoutUniqueRepeatUntil(() => {
-                        if (typeof($bit.data('bit-server-id')) === 'undefined')
-                            return false
-                        App.clientMovedBit({
-                            id: $bit.data('bit-server-id'),
-                            left: ui.position.left,
-                            top: ui.position.top
-                        })
-                    }, Config.SERVER_SEND_THROTTLE_INTERVAL, 'move#' + uniqid)
+                    // trigger events.client.movedBit(Object.assign({}, bit, {left: ui.position.left, top: ui.position.top})) 
+                    App.clientMovedBit({
+                        id: $bit.data('bit-server-id'),
+                        left: ui.position.left,
+                        top: ui.position.top
+                    })
                 }
             });
 
@@ -449,17 +440,6 @@ var View = {
     },
     removeAllBits: function() {
         $('#bit-holder .bit__text').remove();
-    },
-    // server.movebit.subscribe (check if called locally also)
-    moveBit: function(bit) {
-        $('[data-id=' + bit.id + ']').css({
-            top: bit.top,
-            left: bit.left
-        });
-    },
-    // server.deletebit.subscribe
-    deleteBit: function(bit) {
-			this.delete$Bit($('[data-id=' + bit.id + ']'));
     },
     // wtf brah
 		delete$Bit: function($bit) {
@@ -501,7 +481,7 @@ var App = new Vue({
         connectedUsersCount: 0,
     },
     methods: {
-        initializeSocketEvents: function() {
+        initializeSocketEvents: function() { // purely reactive
           
             events.client.pad.onValue(p => {
                 this.roomName = p.pad;
@@ -557,16 +537,17 @@ var App = new Vue({
                 })  // utiliser flow
             });
 
-            events.server.bit_moved.onValue(updatedBit => {
+            events.server.bit_moved.onValue(bit => {
                 dc('Bit was moved; moving bit in view.')
-                View.moveBit(updatedBit)
+                $('[data-id=' + bit.id + ']').css({
+                    top: bit.top,
+                    left: bit.left
+                });
             });
 
             events.server.bit_deleted.onValue(id => {
                 dc('Bit was deleted; removing bit from view.')
-                View.deleteBit({
-                    id: id
-                });
+			    this.delete$Bit($('[data-id=' + bit.id + ']'));
             });
 
             events.view.bit_update_from_remote = events.server.bit_edited.map(bit => {

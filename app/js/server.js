@@ -126,5 +126,9 @@ var callAfterView = () => {
             text: bit.text
         });
     })
+
+    // moved bit: make sure that is has server_id
+    // use middleware throttler, the same everywhere! go
+    // possible de merge aussi "new (sans server id) + move + server id => new (server id, nouvelles positions)"
 };
 
