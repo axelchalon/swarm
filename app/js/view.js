@@ -345,7 +345,7 @@ var View = {
 
         // todo "bits-holder" pas "bit-holder"
         // todo throttle ici ; ne pas calculer le getplaintext à chaque fois
-        events.client.bit_edited = $('#bit-holder').asEventStream('input', '.bit__text').map(e => {
+        events.view.bit_edited = $('#bit-holder').asEventStream('input', '.bit__text').map(e => {
             // Doesn't matter if we put this inside the callforward
             var $bit_message = $(e.target);
             var plaintext = this.getPlaintextFrom$BitMessage($bit_message);
@@ -361,7 +361,8 @@ var View = {
                     text: plaintext,
                     bit_server_id: $bit.data('bit-server-id')
                 }
-        }).doAction(bit => dc('Client edited bit', bit));
+        }).doAction(bit => dv('Client manually edited bit', bit));
+        events.client.bit_edited = events.view.bit_edited.merge(events.view.bit_update_from_remote.filter(b => b.strategy == 'ot-to-merged').map(b => { b.text = b.target_text; return b; }));
 
         // window.onbeforeunload = function() {
         //     if (App.notSaved())
@@ -448,92 +449,6 @@ var View = {
     },
     removeAllBits: function() {
         $('#bit-holder .bit__text').remove();
-    },
-    //server.editbit.subscribe
-    editBit: function(bit) {
-        var $b = $('[data-id=' + bit.id + '] .bit__text');
-
-        var shared_text = $('[data-id=' + bit.id + ']').data('shared');
-        var old_text = $b.text();
-        
-        if (!Config.OT_ENABLED || !old_text.trim().length || !window.chrome) {
-            debug('ot')('Updating contents without using OT');
-            $b.text(bit.text);
-            return;
-        }
-        
-        // Get new text
-        if (old_text == shared_text) { 
-            var new_text = bit.text;
-            debug('ot')('No unsent local modifications.')
-            debug('ot')('Old text: ', old_text);
-            debug('ot')('New text: ', new_text);
-        } else { // local modifications
-            debug('ot')('Remotely edited text has local modifications; merging.');
-            var new_text = Utils.rebase_with_status(shared_text, bit.text, old_text);
-            debug('ot')('Shared text: ', shared_text);
-            debug('ot')('Remote text: ', bit.text);
-            debug('ot')('Local text: ', old_text);
-            debug('ot')('Merged text (apply shared->remote to local) info: ', new_text);
-            new_text = new_text[0];
-            // trigger events.client.editedBit
-            // @todo when to know if the view stuff is already done before the stream nextd
-            // or if it is done on subscribe?
-            App.clientEditedBit({id: bit.id, text: new_text});
-            // ou si le patch failed, de local à remote
-        }
-
-        // Set new text as shared
-        $('[data-id=' + bit.id + ']').data('shared',new_text);
-
-        // Get OT
-        var ot_steps = Utils.getOt(old_text, new_text); // util the shit out of it
-        debug('ot')('Steps: ', ot_steps);
-        
-        // Get selection range
-        $b.get(0).normalize();
-        var sel = rangy.getSelection($b.get(0));
-        var sel_range = $b.is(':focus') && sel.getAllRanges()[0];
-        
-        // Compute new selection range
-        if (sel_range) {
-            var old_sel_start = sel_range.startOffset;
-            var old_sel_end = sel_range.endOffset;
-            debug('ot')('Old text selection offsets: ', old_sel_start, old_sel_end);
-            var {new_sel_start, new_sel_end, verbose} = Utils.getNewSelRangeFromOt(ot_steps, old_sel_start, old_sel_end);
-            debug('ot')('New selection range', new_sel_start, new_sel_end, verbose);
-        }
-        else {
-            debug('ot')('No selection in this bit.'); // oh yeah debugs
-        }
-
-        // next: @todo
-        // !!!use algebraic data types for ot: 
-        // data OT = InsertOt Int String | DeleteOt Int Int
-        // utils.getnewselrangefromot([InsertOt 0 "hi", DeleteOt 7 7])
-        
-        // Apply OT
-        ot_steps.forEach(o => {
-            if (o[1] == "insert") {
-                var range = rangy.createRangyRange($b.get(0));
-                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]);
-                range.insertNode(document.createTextNode(o[2]));
-            }
-            else {
-                var range = rangy.createRangyRange($b.get(0));
-                range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]+o[2]);
-                range.deleteContents();
-            }
-            $b.get(0).normalize();
-        });
-        
-        // Update selection range
-        if (sel_range) {
-            debug('ot')('New text selection offsets: ', new_sel_start, new_sel_end);
-            var new_sel_range = rangy.createRangyRange($b.get(0));
-            new_sel_range.setStartAndEnd($b.get(0).childNodes[0], new_sel_start, new_sel_end);
-            sel.setRanges([new_sel_range]);
-        }
     },
     // server.movebit.subscribe (check if called locally also)
     moveBit: function(bit) {
@@ -654,10 +569,113 @@ var App = new Vue({
                 });
             });
 
-            events.server.bit_edited.onValue(bit => {
-                dc('Bit was edited; updating bit in view.')
-                View.editBit(bit);
-            })
+            events.view.bit_update_from_remote = events.server.bit_edited.map(bit => {
+                bit.bit_server_id = bit.id; // todo clean les conventions de partout du serv et tout
+                var $b = $('[data-bit-server-id=' + bit.bit_server_id + '] .bit__text');
+
+                // @todo prove that shared_text exists
+                var shared_text = $('[data-bit-server-id=' + bit.bit_server_id + ']').data('shared'); // todo use helpers $getSharedTextFor$Bit(bit: Bit)
+                var local_text = $b.text();
+                var remote_text = bit.text;
+                // data Ot = OtToRemote | OtToMerged
+                // data Strategy = NoOt | Ot
+
+
+                if (!Config.OT_ENABLED || !local_text.trim().length || !window.chrome) {
+                    var strategy = 'no-ot';
+                    var target_text = remote_text;
+                    var ot_steps = null;
+                    debug('ot')('Updating contents without using OT');
+                }
+                else {
+                    // Get new text
+                    if (local_text == shared_text) { 
+                        var strategy = 'ot-to-remote';
+                        var target_text = remote_text;
+                        debug('ot')('No unsent local modifications.')
+                        debug('ot')('Old text: ', local_text);
+                        debug('ot')('New text: ', target_text);
+                    } else { // local modifications
+                        var strategy = 'ot-to-merged';
+                        var rebase_result = Utils.rebase_with_status(shared_text, remote_text, local_text);
+                        var target_text = rebase_result[0];
+                        debug('ot')('Remotely edited text has local modifications; merging.');
+                        debug('ot')('Shared text: ', shared_text);
+                        debug('ot')('Remote text: ', remote_text);
+                        debug('ot')('Local text: ', local_text);
+                        debug('ot')('Merged text (apply shared->remote to local) info: ', rebase_result);
+                        // ou si le patch failed, de local à remote
+                    }
+
+                    // Get OT
+                    var ot_steps = Utils.getOt(local_text, target_text); // util the shit out of it
+                    debug('ot')('Steps: ', ot_steps);
+                }
+
+                return {
+                        bit_server_id: bit.bit_server_id,
+                        strategy,
+                        target_text: target_text,
+                        ot_steps,
+                }
+                    // : BitMergeInfo
+            }).doAction(b => {dv('Bit update from remote: ',b)});
+            events.view.bit_update_from_remote.onValue(bit => {
+                var $b = $('[data-bit-server-id=' + bit.bit_server_id + '] .bit__text');
+
+                // Set new text as shared
+                $('[data-bit-server-id=' + bit.bit_server_id + ']').data('shared',bit.target_text);
+                
+                if (bit.strategy == 'no-ot') {
+                    $b.text(bit.target_text);
+                    return;
+                }
+
+                // Get selection range
+                $b.get(0).normalize();
+                var sel = rangy.getSelection($b.get(0));
+                var sel_range = $b.is(':focus') && sel.getAllRanges()[0];
+                
+                // Compute new selection range
+                if (sel_range) {
+                    var old_sel_start = sel_range.startOffset;
+                    var old_sel_end = sel_range.endOffset;
+                    debug('ot')('Old text selection offsets: ', old_sel_start, old_sel_end);
+                    var {new_sel_start, new_sel_end, verbose} = Utils.getNewSelRangeFromOt(bit.ot_steps, old_sel_start, old_sel_end);
+                    debug('ot')('New selection range', new_sel_start, new_sel_end, verbose);
+                }
+                else {
+                    debug('ot')('No selection in this bit.'); // oh yeah debugs
+                    // @TODO then don't apply ot, simply replace? hm, more of the same
+                }
+
+                // next: @todo
+                // !!!use algebraic data types for ot: 
+                // data OT = InsertOt Int String | DeleteOt Int Int
+                // utils.getnewselrangefromot([InsertOt 0 "hi", DeleteOt 7 7])
+                
+                // Apply OT
+                bit.ot_steps.forEach(o => {
+                    if (o[1] == "insert") {
+                        var range = rangy.createRangyRange($b.get(0));
+                        range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]);
+                        range.insertNode(document.createTextNode(o[2]));
+                    }
+                    else {
+                        var range = rangy.createRangyRange($b.get(0));
+                        range.setStartAndEnd($b.get(0).childNodes[0],o[0],o[0]+o[2]);
+                        range.deleteContents();
+                    }
+                    $b.get(0).normalize();
+                });
+                
+                // Update selection range
+                if (sel_range) {
+                    var new_sel_range = rangy.createRangyRange($b.get(0));
+                    new_sel_range.setStartAndEnd($b.get(0).childNodes[0], new_sel_start, new_sel_end);
+                    sel.setRanges([new_sel_range]);
+                }
+            });
         },
 				onClickCancelToast: function() { // you get the idea
 					this.showCancelToast = false;

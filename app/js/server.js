@@ -73,7 +73,7 @@ var callAfterView = () => {
     })
 
     // todo check workflow
-    var client_edited_bit_throttled = events.client.bit_edited.throttle(5);
+    var client_edited_bit_throttled = events.client.bit_edited.throttle(500);
     var client_edited_bit_throttled_with_server_id_known_streams = client_edited_bit_throttled.filter(bit => bit.bit_server_id).map(bit => Bacon.constant(bit).first()).doAction(t => dv('Client bit edit throttled with known server id')); // Bacon.once(bit)
     var client_edited_bit_throttled_with_server_id_unknown_streams = client_edited_bit_throttled
         .filter(b => !b.bit_server_id)
@@ -92,8 +92,8 @@ var callAfterView = () => {
     events.server.loading = ends_count.combine(starts_count, (ends_count, starts_count) => ends_count !== starts_count).doAction(t => dv('Loading ?',t))
     events.server.client_edited_bit_sent = 
         client_edited_bit_throttled_with_server_id_known_streams
-        .merge(client_edited_bit_throttled_with_server_id_unknown_streams).flatMapLatest(a => a).doAction(t => dv('Edited bit sent',t)) // @todo notsure about this one
-
+        .merge(client_edited_bit_throttled_with_server_id_unknown_streams).flatMapLatest(a => a).doAction(t => ds('Edited bit sent',t)) // @todo notsure about this one
+        // ^todo this logging is confusing "edited bit sent"; "sending bit edit to server"
     events.server.loading.onValue(() => 1);
 
     // var start_loading = events.server.client_edited_bit_with_server_id_unknown;
