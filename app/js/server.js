@@ -73,7 +73,9 @@ var callAfterView = () => {
     })
 
     // todo check workflow
-    var client_edited_bit_throttled = events.client.bit_edited.throttle(500);
+    
+    var SERVER_SEND_THROTTLE_INTERVAL = 500;
+    var client_edited_bit_throttled = events.client.bit_edited.throttle(SERVER_SEND_THROTTLE_INTERVAL);
     var client_edited_bit_throttled_with_server_id_known_streams = client_edited_bit_throttled.filter(bit => bit.bit_server_id).map(bit => Bacon.constant(bit).first()).doAction(t => dv('Client bit edit throttled with known server id')); // Bacon.once(bit)
     var client_edited_bit_throttled_with_server_id_unknown_streams = client_edited_bit_throttled
         .filter(b => !b.bit_server_id)

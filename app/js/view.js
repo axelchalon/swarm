@@ -17,7 +17,6 @@ if ( /mobile/i.test(navigator.userAgent)) {
 
 var Config = {
     OT_ENABLED: true,
-    SERVER_SEND_THROTTLE_INTERVAL: 500
 };
 
 // # UTILS
@@ -34,26 +33,6 @@ var Utils = {
     escape: function(text) {
         var tmpDiv = jQuery(document.createElement('div'));
         return tmpDiv.text(text).html();
-    },
-    setTimeoutUnique: (function() {
-        var timeouts = {};
-        return function(fn, interval, uniqid) {
-            if (!arguments.length) return timeouts; // lol
-            if (uniqid in timeouts)
-                clearTimeout(timeouts[uniqid]);
-            timeouts[uniqid] = setTimeout(
-                () => {
-                    delete timeouts[uniqid]; // when checking for pending requests
-                    fn()
-                }, interval);
-        }
-    })(),
-    setTimeoutUniqueRepeatUntil: function(fn, interval, uniqid) {
-        var fn_ = () => {
-            if (fn() === false)
-                this.setTimeoutUnique(fn_, interval, uniqid)
-        }
-        this.setTimeoutUnique(fn_, interval, uniqid)
     },
 
     // apply shared->remote to local
@@ -132,48 +111,6 @@ var View = {
     // this is front-related config
     GRID_X: 10,
     GRID_Y: 14,
-    // this could go in view utils
-    get$BitsAdjacentTo$Bit: function($bit,actualHeight) { // get bits to the left, right and bottom
-
-      var refTop = parseInt($bit[0].style.top);
-      var refLeft = parseInt($bit[0].style.left);
-      var refBottom = refTop + (actualHeight || $bit.height());
-      var refRight = refLeft + $bit.width();
-
-      var adjacent$Bits = [];
-      var thisView = this;
-      $('.bit').each(function() {
-
-        if ($(this).is($bit)) return;
-
-        var top = parseInt($(this)[0].style.top);
-        var left = parseInt($(this)[0].style.left);
-        var bottom = top + $(this).height();
-        var right = left + $(this).width();
-
-        if (bottom == top) return; // null height
-
-        var boundaries = [
-          {y: [refBottom,refBottom+4*thisView.GRID_Y], x: [refLeft-4*thisView.GRID_X,refLeft+4*thisView.GRID_X]}, // down
-          // {y: [refTop,refBottom], x: [refLeft-4*thisView.GRID_X-$(this).width(),refLeft]}, // left
-          // {y: [refTop,refBottom], x: [refRight,refRight+4*thisView.GRID_X]} // right
-        ];
-
-        var bitIsInBoundary = (boundary) =>
-              top >= boundary.y[0] && top <= boundary.y[1] &&
-              left >= boundary.x[0] && left <= boundary.x[1]
-        if (boundaries.some(bitIsInBoundary))
-          adjacent$Bits.push($(this)); // {id: $(this).attr('data-id')})
-      });
-
-      var result =
-        adjacent$Bits.concat(
-        adjacent$Bits.map(this.get$BitsAdjacentTo$Bit.bind(this)).reduce((acc, cur) => acc.concat(cur), [])
-        )
-      .filter((v, i, a) => a.indexOf(v) === i); // uniquify
-
-      return result;
-    },
     initializeEvents: function() {
         var thisView = this;
 
@@ -214,15 +151,6 @@ var View = {
         // events.client.bit_created.and() .. no internet
         // ou bloquer avant/autrement
 
-        events.client.bit_created.onValue(bit => {
-            thisView.appendBit({
-                left: bit.left,
-                top: bit.top,
-                bit_client_id: bit.bit_client_id,
-            }, true);
-        })
-
-                
         events.view.bit_shortcut_moved = $(document).asEventStream('keydown', '.bit__text')
             .filter(e => e.altKey && e.keyCode >= 37 && e.keyCode <= 40)
             .doAction('.preventDefault')
@@ -259,45 +187,23 @@ var View = {
             })
             .doAction(bit => dv('View moved bit using Alt+ArrowKey shortcut', bit));
 
+        
+
+
+        
+        
         // todo repasser
-				$('#bit-holder').on('focus', '.bit__text', (e) => {
-                    // [bacon.js] cascadememory could be a module that listens to Client.FocusOnBitText which is $madeFromDom
-                    // in which case
-                    // the DOM event listener would be built-in the events.js declaration (urgh)
-                    // how to differentiate empty observables from not empty ones?
-                    // simply have it be an empty observable and call .next() here?
-                    // but then not leveraging the $fromdom 
 
-                    // maybe we could have a section at the to of view.js and server.js with the list of
-                    // events defined for this section
-                    // like Events.View = { DeleteBit: bacon.fromdom.. }
+        events.view.bit_focus = $('#bit-holder').asEventStream('focus', '.bit__text').map(e => $(e.target).closest('.bit').get(0));
+        events.view.bit_blur = $('#bit-holder').asEventStream('blur', '.bit__text').map(e => $(e.target).closest('.bit').get(0));
 
-                    // weeeell state could theoretically also be a stream, but I think that's too much
-                    // ! the stream should be called with the .bit, no the .bit__text (there might be some tranformation needed; we can inline it at declaration level)
-                    cascadeMemory.$bit = $(e.target).closest('.bit');
-                    cascadeMemory.height = $(e.target).closest('.bit').height();
-                    // could also simply not register the stream in the global stream
-                    // and simply do bacon.fromdom() => {} which is just equivalent syntax so doesn't make difference...
-                    // OK SO: register the bacon.fromdom as a global stream, so we can make a standalone cascadememory module after!!! which just subscribes
-                    // this could be registered at the top, at the time of streams declaration
+        // @@@
 
-                    // here we would do BitFocus.subscribe
-					$(e.target).closest('.bit').css('z-index','1').addClass('focus')
-				})
-
-                // same as before : declare at the top fromdom; here we would just subscribe
-                // bam the focus component :D
-				$('#bit-holder').on('blur', '.bit__text', (e) => {
-					$(e.target).closest('.bit').css('z-index','').removeClass('focus')
-				})
-
-        // this would be at the bottom in its own module
-        // not sure if state is necessary; could use streams
-        var cascadeMemory = {$bit: $(''), initialHeight: 0}
+        
 
         // Prevent from pasting formatted text
         // mmm this could stay this way, no real point (standalone)
-        $('#bit-holder').on('paste', '.bit__text', ($e) => {
+        $('#bit-holder').asEventStream('paste', '.bit__text').onValue($e => {
           var e = $e.originalEvent;
           var text = "";
           if (e.clipboardData && e.clipboardData.getData) {
@@ -310,38 +216,13 @@ var View = {
           document.execCommand("insertHTML" , false, text);
         });
 
+        
+        
+
         // this could be declred at the to as BitKeyUp event; and the following would be in the
         // cascade part of the code
         // BitKeyUp called with Bit (not bit__text, otherwise it'd be bittextkeyup)
-        $('#bit-holder').on('keyup', '.bit__text', (e) => {
-          var $bit = $(e.target).closest('.bit');
-          if (cascadeMemory.$bit.is($bit) // security check
-            && cascadeMemory.height != $bit.height()) {
-                // okay theoretically we could really use declarative mode and use
-                // loads of streams and be like
-                // KeyUp = xxx
-                // HeightChanged = KeyUp.filter...
-                // HeightChanged.subscribe ...
-                // we could also use this syntax for declaring all sorts of streams and middleware
-                // and expose the need-to-be-exposed streams at the end
-                // naming convention like maj(public)/min could be used
-                // ^ this is not a bad idea
-              var difference = $bit.height() - cascadeMemory.height;
-              var oldHeight = cascadeMemory.height;
-              cascadeMemory.height = $bit.height()
-              debug('cascade')('Detected change in bit height',difference)
-              this.get$BitsAdjacentTo$Bit($(e.target).closest('.bit'),oldHeight).forEach(function($el) {
-                var newY = parseInt($el[0].style.top)+difference;
-                $el.css('top', newY + 'px');
-                App.clientMovedBit({
-                  id: $el.attr('data-bit-server-id'),
-                  top: newY,
-                  left: $el[0].style.left
-                })
-              })
-            }
-        });
-
+        events.view.bit_keyup = $('#bit-holder').asEventStream('keyup', '.bit__text').map(e => $(e.target).closest('.bit').get(0))
 
         // todo "bits-holder" pas "bit-holder"
         // todo throttle ici ; ne pas calculer le getplaintext à chaque fois
@@ -364,13 +245,7 @@ var View = {
         }).doAction(bit => dv('Client manually edited bit', bit));
         events.client.bit_edited = events.view.bit_edited.merge(events.view.bit_update_from_remote.filter(b => b.strategy == 'ot-to-merged').map(b => { b.text = b.target_text; return b; }));
 
-        // window.onbeforeunload = function() {
-        //     if (App.notSaved())
-        //         return 'Please wait a short while so we can save your message.';
-        //     else
-        //         return null;
-        // }
-    },
+    }, /// @@@ todo here continuer
     // Events.Server.BitCreated.subscribe
     // Events.Client/View(aka).BitCreated.subscribe
     appendBit: function(bit, created_by_user) {
@@ -677,9 +552,6 @@ var App = new Vue({
                 top: bit.top
             });
         },
-        notSaved: function() { // what the fuck
-            return Object.keys(Utils.setTimeoutUnique()).length > 0
-        }
     }
 })
 
@@ -696,6 +568,106 @@ assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOO
 
 
 //// MODULES
+
+/// PLUGGING IN FROM THE SERVER
+events.client.bit_created.onValue(bit => {
+    View.appendBit({
+        left: bit.left,
+        top: bit.top,
+        bit_client_id: bit.bit_client_id,
+    }, true);
+})
+
+        
+
+
+/// FOCUS MODULE
+events.view.bit_blur.onValue(DOMb => {
+    $(DOMb).css('z-index','').removeClass('focus')
+})
+events.view.bit_focus.onValue(DOMb => {
+    $(DOMb).css('z-index','1').addClass('focus');
+});
+
+/// CASCADE
+// this could go in view utils
+(function() {
+    function get$BitsAdjacentTo$Bit($bit,actualHeight) { // get bits to the left, right and bottom
+        var refTop = parseInt($bit[0].style.top);
+        var refLeft = parseInt($bit[0].style.left);
+        var refBottom = refTop + (actualHeight || $bit.height());
+        var refRight = refLeft + $bit.width();
+
+        var adjacent$Bits = [];
+        var thisView = View; // todo
+        $('.bit').each(function() {
+            if ($(this).is($bit)) return;
+
+            var top = parseInt($(this)[0].style.top);
+            var left = parseInt($(this)[0].style.left);
+            var bottom = top + $(this).height();
+            var right = left + $(this).width();
+
+            if (bottom == top) return; // null height
+
+            var boundaries = [
+                {y: [refBottom,refBottom+4*thisView.GRID_Y], x: [refLeft-4*thisView.GRID_X,refLeft+4*thisView.GRID_X]}, // down
+                // {y: [refTop,refBottom], x: [refLeft-4*thisView.GRID_X-$(this).width(),refLeft]}, // left
+                // {y: [refTop,refBottom], x: [refRight,refRight+4*thisView.GRID_X]} // right
+            ];
+
+            var bitIsInBoundary = (boundary) =>
+                    top >= boundary.y[0] && top <= boundary.y[1] &&
+                    left >= boundary.x[0] && left <= boundary.x[1]
+            if (boundaries.some(bitIsInBoundary))
+                adjacent$Bits.push($(this)); // {id: $(this).attr('data-id')})
+        });
+
+        var result =
+            adjacent$Bits.concat(
+            adjacent$Bits.map(get$BitsAdjacentTo$Bit.bind(this)).reduce((acc, cur) => acc.concat(cur), [])
+        )
+        .filter((v, i, a) => a.indexOf(v) === i); // uniquify
+
+        return result;
+    }
+
+    let dc = debug('view-cascade');
+
+    events.view.bit_height = events.view.bit_keyup.merge(events.view.bit_focus).map((DOMb) => ({
+        DOMb,
+        height: $(DOMb).height(),
+        from_remote: false,
+    })).merge(events.view.bit_update_from_remote.map(b => {
+        var DOMb = $('[data-bit-server-id='+b.bit_server_id+']').get(0);
+        var height= $(DOMb).height();
+        return {DOMb, height, from_remote: true};
+    })).doAction(x => {dc('Bit height : ',x)});
+    // todo tester externally edited add +3 lignes, ensuite toujours avec le focus j'appuie sur entrée, check si old et new sont les bonnes valeurs
+
+    // todo this needs to be for the same bit
+    // bad, cf sliding window 2-2; [CLIENT HEIGHT BIT] [FROM_REMOTE POUR UN AUTRE BIT] [CLIENT HEIGHT BIT]
+    events.view.bit_height_changed = events.view.bit_height.slidingWindow(2,2).filter(([o,n]) => o.DOMb === n.DOMb && !o.from_remote && o.height !== n.height).map(([o,n]) => ({DOMb: n.DOMb, old_height: o.height, new_height: n.height})).doAction(y => dc('Height changed !',y))
+
+    events.view.bit_cascade_moved = events.view.bit_height_changed.flatMap(({DOMb, old_height, new_height}) => {
+        var $bit = $(DOMb);
+        var difference = new_height - old_height;
+        var res = [];
+        get$BitsAdjacentTo$Bit($(DOMb),old_height).forEach(function($el) {
+            var newY = parseInt($el[0].style.top)+difference;
+            $el.css('top', newY + 'px');
+
+            // @todo peut être seulement client id
+            res.push({
+                bit_server_id: $el.attr('data-bit-server-id'),
+                top: newY,
+                left: $el[0].style.left
+            })
+    
+        })
+        return Bacon.fromArray(res);
+    }).doAction(x => {dc('Cascade changed bit height:',x)});
+})();
 
 /// ALT+ARROW
 
@@ -722,7 +694,7 @@ assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOO
         })
     */
 
-events.client.bit_moved = events.view.bit_shortcut_moved.doAction(bit => {dc('Client moved bit', bit)}); // @todo clone
+events.client.bit_moved = events.view.bit_shortcut_moved.merge(events.view.bit_cascade_moved).doAction(bit => {dc('Client moved bit', bit)}); // @todo clone
 
 // !! indicateur de loading :)
 callAfterView();
@@ -736,6 +708,14 @@ events.server.client_edited_bit_sent.onValue(bit => {
 // todo rem bit.id data
 
 // test ot quickcheck, cf position curseur quand prepend et apend doit être au même endroit, etc. ; quand prepend et append à des endroits différents en-dehors de la sélection, la sélection doit être la même
+
+
+// window.onbeforeunload = function() {
+//     if (App.notSaved())
+//         return 'Please wait a short while so we can save your message.';
+//     else
+//         return null;
+// }
 
 function test() {
     var new_text = Utils.rebase_with_status('WOOPI','WOOPAI','WZOOPI')
