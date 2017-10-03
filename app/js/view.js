@@ -139,7 +139,7 @@ var View = {
         // todo pointer events none on canvas when no internet
         events.client.bit_created = $('#canvas').asEventStream('mousedown').filter(e => e.target == $('#canvas').get(0)).doAction('.preventDefault').map(function(e) {    
             var parentOffset = $(e.target).offset();
-            var relX = e.pageX - parentOffset.left;
+            var relX = e.pageX; // todo test mobile - parentOffset.left;
             var relY = e.pageY - 35 // top margin;; - parentOffset.top - 5;
             
             // Grid
@@ -414,7 +414,7 @@ var App = new Vue({
 
             events.server.bit_moved.onValue(bit => {
                 dc('Bit was moved; moving bit in view.')
-                $('[data-id=' + bit.id + ']').css({
+                $('[data-bit-server-id=' + bit.id + ']').css({
                     top: bit.top,
                     left: bit.left
                 });
@@ -422,7 +422,7 @@ var App = new Vue({
 
             events.server.bit_deleted.onValue(id => {
                 dc('Bit was deleted; removing bit from view.')
-			    this.delete$Bit($('[data-id=' + bit.id + ']'));
+			    this.delete$Bit($('[data-bit-server-id=' + bit.id + ']'));
             });
 
             events.view.bit_update_from_remote = events.server.bit_edited.map(bit => {
@@ -634,7 +634,44 @@ events.view.bit_focus.onValue(DOMb => {
 
     let dc = debug('view-cascade');
 
-    events.view.bit_height = events.view.bit_keyup.merge(events.view.bit_focus).map((DOMb) => ({
+    events.view.bit_height_focussed = events.view.bit_focus.flatMapLatest((DOMb) => { // todo utiliser Bit$ à la place de Bit. Bit$ contient: Bit$.$bit ; Bit$.bit_serverid etc. grosso modo comme Bit mais hydraté avec vue (ou juste vue)
+        var $bit = $(DOMb);
+        var bit_server_id = $(DOMb).attr('data-server-id');
+        return Bacon.once({DOMb, height: $bit.height(), from_remote: false}) // initial height ==> utiliser bit_keyup avec toproperty startswith
+        .merge(events.view.bit_update_from_remote.filter(br => br.bit_server_id == bit_server_id).map(b => {
+            var height= $(DOMb).height();
+            return {DOMb, height, from_remote: true};
+        })) // height from remote
+        .merge(
+            events.view.bit_keyup.map((DOMb) => ({
+                DOMb,
+                height: $(DOMb).height(),
+                from_remote: false,
+            }))
+        ); // height from keyup (si je leave this out je peux faire, après : onkeyup.Combine(bitheightfoussed) et je peux baser "height changed" sur ça)
+    }).doAction(x => {dc('Bit height of focussed bit', x)}) // @todo won't work for newly created bit
+    
+    // bit height change when:
+    // onkeyup(ou filter bit_height_focussed from_remote == false).combine(bit_height_focussed)
+    // mais bit_height_focussed c'est le même stream... wtf
+    // grossomodo je veux une slidingWindow(2,2).ON THIS TYPE OF EVENT
+    // slidingWindowOn
+    // onkeyup(ou filter bit_height_focussed from_remote == false).combine(bit_height_focussed [-1])
+    // bit_height_focussed.slidingWindow(2,2).filter(([a,b]) => !b.from_remote && )
+
+    // bit height change when:
+    // events.view.bit_height_focussed.slidingWindow(2,2)
+
+    // bit_height_focused.combine(keyup.combine(remote))
+
+    // bit height change when:
+    // ONKEYUP !!! ça ne peut changer que onkeyup
+    // onkeyup et combine le dernier
+    // events.view.bit_keyup.combine()
+
+
+
+/*    events.view.bit_height = events.view.bit_keyup.merge(events.view.bit_focus).map((DOMb) => ({
         DOMb,
         height: $(DOMb).height(),
         from_remote: false,
@@ -642,7 +679,7 @@ events.view.bit_focus.onValue(DOMb => {
         var DOMb = $('[data-bit-server-id='+b.bit_server_id+']').get(0);
         var height= $(DOMb).height();
         return {DOMb, height, from_remote: true};
-    })).doAction(x => {dc('Bit height : ',x)});
+    })).doAction(x => {dc('Bit height : ',x)}); */
     // todo tester externally edited add +3 lignes, ensuite toujours avec le focus j'appuie sur entrée, check si old et new sont les bonnes valeurs
 
     // todo this needs to be for the same bit
@@ -664,7 +701,7 @@ events.view.bit_focus.onValue(DOMb => {
     // });
 
     // c'était probablement plus proche : @@@@ todo
-    events.view.bit_height_changed = events.view.bit_height.slidingWindow(2,2).filter(([o,n]) => o.DOMb === n.DOMb && !o.from_remote && o.height !== n.height).map(([o,n]) => ({DOMb: n.DOMb, old_height: o.height, new_height: n.height})).doAction(y => dc('Height changed !',y))
+    events.view.bit_height_changed = events.view.bit_height_focussed.slidingWindow(2,2).filter(([o,n]) => !o.from_remote && o.height !== n.height).map(([o,n]) => ({DOMb: n.DOMb, old_height: o.height, new_height: n.height})).doAction(y => dc('Height changed !',y))
 
     events.view.bit_cascade_moved = events.view.bit_height_changed.flatMap(({DOMb, old_height, new_height}) => {
         var $bit = $(DOMb);
