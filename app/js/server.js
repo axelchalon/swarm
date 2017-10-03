@@ -97,6 +97,9 @@ var callAfterView = () => {
         .merge(client_edited_bit_throttled_with_server_id_unknown_streams).flatMapLatest(a => a).doAction(t => ds('Edited bit sent',t)) // @todo notsure about this one
         // ^todo this logging is confusing "edited bit sent"; "sending bit edit to server"
     events.server.loading.onValue(() => 1);
+    // je peux utiliser .zip à la place
+    // "observable.awaiting(otherObservable) creates a Property that indicates whether observable is awaiting otherObservable, i.e. has produced a value after the latest value from otherObservable."
+    // si sent_requests.awaiting(received_requests) alors loading
 
     // var start_loading = events.server.client_edited_bit_with_server_id_unknown;
 

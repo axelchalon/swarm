@@ -647,6 +647,23 @@ events.view.bit_focus.onValue(DOMb => {
 
     // todo this needs to be for the same bit
     // bad, cf sliding window 2-2; [CLIENT HEIGHT BIT] [FROM_REMOTE POUR UN AUTRE BIT] [CLIENT HEIGHT BIT]
+    // TODOTODOTODTODOTDO
+    // basically slidingwindow with a condition?
+    // events.view.bit_height.slidingWindow(Infinity,2).
+    // .filter(old bit = new bit)
+    // .pluck("domb")
+    // .reduce depuis le début si ça a changé?
+    // ==> prendre la dernière valeur pour chaque DOMb !!! c'est une Property en fait !
+    // à chaque nouvel évènement bit_height : si c'est pas from_remote, émettre evt "bit_height_changed" si filter(DOMb==DOMb).last().combine() c'est différent
+    // events.view.bit_height_changed = events.view.bit_height.flatMap(x => {
+    //     if (x.from_remote) return Bacon.never();
+
+    //     events.view.bit_height.skipLast().filter(w => w.DOMb == x.DOMb).map(w => w.height == x.height)
+
+    //     return Bacon.once({DOMb: n.DOMb, old_height: o.height, new_height: n.height});
+    // });
+
+    // c'était probablement plus proche : @@@@ todo
     events.view.bit_height_changed = events.view.bit_height.slidingWindow(2,2).filter(([o,n]) => o.DOMb === n.DOMb && !o.from_remote && o.height !== n.height).map(([o,n]) => ({DOMb: n.DOMb, old_height: o.height, new_height: n.height})).doAction(y => dc('Height changed !',y))
 
     events.view.bit_cascade_moved = events.view.bit_height_changed.flatMap(({DOMb, old_height, new_height}) => {
