@@ -72,26 +72,38 @@ var callAfterView = () => {
         });
     })
 
+    /*
+
+    hydrateWithServerId = bit => {
+        
+    }
+
+    events.server.bit_edit_sent = events.client.bit_edited.throttle(SERVER_SEND_THROTTLE_INTERVAL).flatMap(?)(hydrateWithServerId)
+    events.client.bit_edited.flatMap(bit => Bacon.once("x").awaiting(events.server.bit_edit_sent.filter(bit => bit.id)))
+
+    */
+
     // todo check workflow
     
     var SERVER_SEND_THROTTLE_INTERVAL = 500;
     var client_edited_bit_throttled = events.client.bit_edited.throttle(SERVER_SEND_THROTTLE_INTERVAL);
-    var client_edited_bit_throttled_with_server_id_known_streams = client_edited_bit_throttled.filter(bit => bit.bit_server_id).map(bit => Bacon.constant(bit).first()).doAction(t => dv('Client bit edit throttled with known server id')); // Bacon.once(bit)
+    var client_edited_bit_throttled_with_server_id_known_streams = client_edited_bit_throttled.filter(bit => bit.bit_server_id).map(bit => Bacon.constant(bit).first()).doAction(t => ds('Client bit edit throttled with known server id')); // Bacon.once(bit)
     var client_edited_bit_throttled_with_server_id_unknown_streams = client_edited_bit_throttled
         .filter(b => !b.bit_server_id)
         .map(bit => {
             var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
             return Bacon.constant(bit).combine(assocStream,(bit,bit_server_id) => Object.assign({}, bit, {bit_server_id})).first();
-        })
-        .doAction(t => dv('Client bit edit throttled with unknown server id'));
+        }) // todo I should merge known and unknown streams into on (like it as before) and then I can simply do, for client bit edit, move, delete: .map(hydrateWithServerId)
+        .doAction(t => ds('Client bit edit throttled with unknown server id'));
     
-    var starts = client_edited_bit_throttled_with_server_id_unknown_streams.map(stream => 'start').doAction(t => dv('Unknown server ID for client edited bit: started waiting...'));
-    var ends = client_edited_bit_throttled_with_server_id_unknown_streams.flatMap(stream => stream.mapEnd('end').filter('end').first()).doAction(t => dv('Unknown server ID for client edited bit: finished waiting...'));
+    // should not be based on throttled edit but on real edit
+    var starts = client_edited_bit_throttled_with_server_id_unknown_streams.map(stream => 'start').doAction(t => ds('Unknown server ID for client edited bit: started waiting...'));
+    var ends = client_edited_bit_throttled_with_server_id_unknown_streams.flatMap(stream => stream.mapEnd('end').filter('end').first()).doAction(t => ds('Unknown server ID for client edited bit: finished waiting...'));
 
-    var starts_count = starts.map(1).scan(0, (x,y) => x + y).doAction(t => dv('Requests count',t));
-    var ends_count = ends.map(1).scan(0, (x,y) => x + y).doAction(t => dv('Responses count',t));
+    var starts_count = starts.map(1).scan(0, (x,y) => x + y).doAction(t => ds('Requests count',t));
+    var ends_count = ends.map(1).scan(0, (x,y) => x + y).doAction(t => ds('Responses count',t));
 
-    events.server.loading = ends_count.combine(starts_count, (ends_count, starts_count) => ends_count !== starts_count).doAction(t => dv('Loading ?',t))
+    events.server.loading = ends_count.combine(starts_count, (ends_count, starts_count) => ends_count !== starts_count).doAction(t => ds('Loading ?',t))
     events.server.client_edited_bit_sent = 
         client_edited_bit_throttled_with_server_id_known_streams
         .merge(client_edited_bit_throttled_with_server_id_unknown_streams).flatMapLatest(a => a).doAction(t => ds('Edited bit sent',t)) // @todo notsure about this one

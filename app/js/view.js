@@ -132,14 +132,15 @@ var View = {
             }
 
             // remove following and put it in the "event subscribe" section of the file
-            thisView.delete$Bit(bit.$bit)
+            thisView.delete$Bit(bit.$bit) // @TODO deleteBit(Bit) plutôt !
             return true;
         })
 
         // todo pointer events none on canvas when no internet
         events.client.bit_created = $('#canvas').asEventStream('mousedown').filter(e => e.target == $('#canvas').get(0)).doAction('.preventDefault').map(function(e) {    
             var parentOffset = $(e.target).offset();
-            var relX = e.pageX; // todo test mobile - parentOffset.left;
+            // @TODO this is messed up
+            var relX = e.pageX - parentOffset.left; // todo test mobile - parentOffset.left;
             var relY = e.pageY - 35 // top margin;; - parentOffset.top - 5;
             
             // Grid
@@ -245,99 +246,126 @@ var View = {
         }).doAction(bit => dv('Client manually edited bit', bit));
         events.client.bit_edited = events.view.bit_edited.merge(events.view.bit_update_from_remote.filter(b => b.strategy == 'ot-to-merged').map(b => { b.text = b.target_text; return b; }));
 
-    }, /// @@@ todo here continuer
-    // Events.Server.BitCreated.subscribe
-    // Events.Client/View(aka).BitCreated.subscribe
-    appendBit: function(bit, created_by_user) {
-        var id = bit.bit_client_id || bit.bit_server_id;
-        var thisView = this;
-        var $bit = $(!window.chrome ? $('.template-bit-nonchrome').html() : $('.template-bit-chrome').html()) // or children.clone
-            .css({
-                top: bit.top,
-                left: bit.left
-            })
-            .find('.bit__text')
-            //.html(Utils.escape(bit.text || ''))
-            .text(bit.text)
-            .end()
-            .data('shared',bit.text)
-            .appendTo('#bit-holder')
-            .draggable({
-                handle: ".bit__handle",
-                // containment: "#canvas",
-                drag: function(event, ui) {
-                    var snapTolerance = $(this).draggable('option', 'snapTolerance');
-                    var topRemainder = ui.position.top % thisView.GRID_Y;
-                    var leftRemainder = ui.position.left % thisView.GRID_X;
+        events.view.bit_drag_start = new Bacon.Bus();
+        events.view.bit_drag_start.onValue(bit => {
+            $(bit.DOMb).addClass('being-dragged');
+            console.log($(bit.DOMb));
+            dv('Start drag',bit)
+        });
+        
+        events.view.bit_drag_stop = new Bacon.Bus();
+        events.view.bit_drag_stop.onValue(bit => {
+            $(bit.DOMb).removeClass('being-dragged');
+            dv('Stop drag',bit)
+        });
 
-                    if (topRemainder <= snapTolerance) {
-                        ui.position.top = ui.position.top - topRemainder;
-                    }
-
-                    if (leftRemainder <= snapTolerance) {
-                        ui.position.left = ui.position.left - leftRemainder;
-                    }
-
-                    if (ui.position.left < snapTolerance/2)
-                      ui.position.left = snapTolerance/2;
-
-                    if (ui.position.left + $(this).width() + snapTolerance/2 > 1024)
-                      ui.position.left = 1024 - $(this).width() - snapTolerance/2;
-
-                    if (ui.position.top < 0)
-                      ui.position.top = 0;
-                },
-                start: function(e) {
-                    $(this).addClass('being-dragged');
-                },
-                stop: function(e, ui) {
-                    $(this).removeClass('being-dragged');
-                    var $bit = $(this)
-                    // trigger events.client.movedBit(Object.assign({}, bit, {left: ui.position.left, top: ui.position.top})) 
-                    App.clientMovedBit({
-                        id: $bit.data('bit-server-id'),
-                        left: ui.position.left,
-                        top: ui.position.top
+        events.client.bit_created
+            .merge(
+                events.server.bit_created
+                    .map(bit => ({
+                        left: bit.left,
+                        top: bit.top,
+                        text: bit.text || '',
+                        bit_server_id: bit.id,
+                    })))  // utiliser flow
+            .merge(
+                events.server.bits_dump
+                    .doAction(bits => { // view: todo do not refresh if states are the same, hashdiff it somehow
+                        App.noInternet = false; // what are you
+                        $('#bit-holder .bit__text').remove();
+                        // View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
+                        App.screen = 'active';
+                        // move this to the global onvalue further down
+                        // but then it's not about appending a bit any longer
                     })
-                }
-            });
+                    .flatMapLatest(bits => 
+                        Bacon.fromArray(bits.map(bit => ({
+                            left: bit.left,
+                            top: bit.top,
+                            text: bit.text,
+                            bit_server_id: bit.id
+                    }))))
+            )
+            .onValue(bit => { // @@@ I can either group by end effect (all the sources in the same place -- what I'm doing) or group by causes (e.g. section "server events") and redirect to end effect ; could also use both views in a flow programming interface ; would obviate the problem (!!!!)
+                var id = bit.bit_client_id || bit.bit_server_id;
+                var thisView = this;
+                // @todo delete if exists? then we don't neeed "removelallbits" and "nointernet" and "this.screen"
+                var $bit = $(!window.chrome ? $('.template-bit-nonchrome').html() : $('.template-bit-chrome').html()) // or children.clone
+                    .css({
+                        top: bit.top,
+                        left: bit.left
+                    })
+                    .find('.bit__text')
+                    //.html(Utils.escape(bit.text || ''))
+                    .text(bit.text)
+                    .end()
+                    .data('shared',bit.text)
+                    .appendTo('#bit-holder')
+                    .draggable({
+                        handle: ".bit__handle",
+                        // containment: "#canvas",
+                        drag: function(event, ui) {
+                            var snapTolerance = $(this).draggable('option', 'snapTolerance');
+                            var topRemainder = ui.position.top % thisView.GRID_Y;
+                            var leftRemainder = ui.position.left % thisView.GRID_X;
 
-        //uuuuuuuuuuuuuuuuuuuuuh
-        //not sure, if both the streams are subscribed by the same callback
-        if (created_by_user) {
-            $bit.find('.bit__text').focus();
-            $bit.attr('data-bit-client-id', id) // rather than .data() so that we can search for an id using CSS selectors
-        } else
-            $bit.attr('data-bit-server-id', id) // rather than .data() so that we can search for an id using CSS selectors
- 
-        $bit.find('.bit__text').focusout(this.deleteIfEmpty) // global DOM event rather
-        // keep the cb name 
+                            if (topRemainder <= snapTolerance) {
+                                ui.position.top = ui.position.top - topRemainder;
+                            }
+
+                            if (leftRemainder <= snapTolerance) {
+                                ui.position.left = ui.position.left - leftRemainder;
+                            }
+
+                            if (ui.position.left < snapTolerance/2)
+                            ui.position.left = snapTolerance/2;
+
+                            if (ui.position.left + $(this).width() + snapTolerance/2 > 1024)
+                            ui.position.left = 1024 - $(this).width() - snapTolerance/2;
+
+                            if (ui.position.top < 0)
+                            ui.position.top = 0;
+                        },
+                        start: function(e) {
+                            events.view.bit_drag_start.push({bit_server_id: bit.bit_server_id, bit_client_id: bit.bit_client_id, DOMb: $bit.get(0)});
+                        },
+                        stop: function(e, ui) {
+                            events.view.bit_drag_stop.push({bit_server_id: bit.bit_server_id, bit_client_id: bit.bit_client_id, DOMb: $bit.get(0), left: ui.position.left, top: ui.position.top});
+                        }
+                    });
+
+                // I guess it's ok...
+                if (bit.bit_client_id) {
+                    $bit.find('.bit__text').focus();
+                    $bit.attr('data-bit-client-id', id) // rather than .data() so that we can search for an id using CSS selectors
+                } else
+                    $bit.attr('data-bit-server-id', id) // rather than .data() so that we can search for an id using CSS selectors
+        
+                $bit.find('.bit__text').focusout(() => {
+                    // subscribe focusout delete if empty, make it a module
+                    
+                    if ($(this).text().length < 1) {
+                        $(this).siblings('.bit__delete').trigger('mousedown');
+                    }
+                }) // global DOM event rather
+            })
+
     },
-    removeAllBits: function() {
-        $('#bit-holder .bit__text').remove();
+    delete$Bit: function($bit) {
+        $bit.addClass('being-removed')
+        setTimeout(() => {
+            $bit.remove();
+        }, 500)
     },
-    // wtf brah
-		delete$Bit: function($bit) {
-			$bit.addClass('being-removed')
-			setTimeout(() => {
-				$bit.remove();
-			}, 500)
-		},
-    // subscribe focusout delete if empty, make it a module
-    deleteIfEmpty: function(e) {
-        if ($(this).text().length < 1) {
-            $(this).siblings('.bit__delete').trigger('mousedown');
-        }
+    getPlaintextFrom$BitMessage: function($bit_message) { // could be util?
+        var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
+        var html_content = $el_with_linebreaks.html().replace(/<div>/g, "<div>\n");
+        var plaintext = jQuery(document.createElement('div')).html(html_content).text();
+        return plaintext;
     },
-		getPlaintextFrom$BitMessage: function($bit_message) {
-				var $el_with_linebreaks = $bit_message.clone().find("br").replaceWith("\n").end();
-				var html_content = $el_with_linebreaks.html().replace(/<div>/g, "<div>\n");
-				var plaintext = jQuery(document.createElement('div')).html(html_content).text();
-				return plaintext;
-		},
-		setReadOnly: function(e) {
-				$('.bit__text').removeAttr('contenteditable');
-		}
+    setReadOnly: function(e) {
+        $('.bit__text').removeAttr('contenteditable');
+    }
 }
 
 // # VUE
@@ -346,13 +374,13 @@ var App = new Vue({
     data: {
         screen: 'loading', // 'loading' | 'active' | 'error'
         firstConnection: true,
-				noInternet: false,
+        noInternet: false,
         flags: [],
         roomName: null,
         socket: undefined,
-				cancelToastBit: {},
-				showCancelToast: false,
-				showCancelToastTimeout: -1,
+        cancelToastBit: {},
+        showCancelToast: false,
+        showCancelToastTimeout: -1,
         connectedUsersCount: 0,
     },
     methods: {
@@ -381,35 +409,10 @@ var App = new Vue({
                 this.connectedUsersCount = count;
             });
 
-            // view: todo do not refresh if states are the same, hashdiff it somehow
-            events.server.bits_dump.onValue(bits => {
-                this.noInternet = false; // what are you
-                View.removeAllBits(); // @todo View.setBits({}) & standardize bit object : {id: ...}
-                $.each(bits, function(i, bit) {
-                    View.appendBit({
-                        left: bit.left,
-                        top: bit.top,
-                        text: bit.text,
-                        bit_server_id: bit.id
-                    })
-                });
-                this.screen = 'active'
-            });
-
             // @todo encodage
 
             events.server.bit_temp_id_is_id.onValue(obj => {
                 $('[data-bit-client-id=' + obj.temp_id + ']').attr('data-bit-server-id', obj.id);
-            });
-
-            events.server.bit_created.onValue(bit => {
-                ds('Bit was created; creating bit in view.')
-                View.appendBit({
-                    left: bit.left,
-                    top: bit.top,
-                    text: bit.text || '',
-                    bit_server_id: bit.id,
-                })  // utiliser flow
             });
 
             events.server.bit_moved.onValue(bit => {
@@ -533,34 +536,23 @@ var App = new Vue({
                 }
             });
         },
-				onClickCancelToast: function() { // you get the idea
-					this.showCancelToast = false;
-					clearTimeout(this.showCancelToastTimeout);
-					var id = Math.floor(Math.random() * 100000); // magic is happening
-					View.appendBit({
-							left: this.cancelToastBit.left,
-							top: this.cancelToastBit.top,
-							text: this.cancelToastBit.text,
-                            bit_client_id: id
-					}, true)
-					this.clientCreatedBit(this.cancelToastBit)
-				},
-        clientMovedBit: function(bit) { // @todo del
-            this.socket.emit('move', {
-                id: bit.id,
-                left: bit.left,
-                top: bit.top
-            });
-        },
+				// onClickCancelToast: function() { // you get the idea
+					// this.showCancelToast = false;
+					// clearTimeout(this.showCancelToastTimeout);
+					// var id = Math.floor(Math.random() * 100000); // magic is happening
+					// View.appendBit({
+					// 		left: this.cancelToastBit.left,
+					// 		top: this.cancelToastBit.top,
+					// 		text: this.cancelToastBit.text,
+                    //         bit_client_id: id
+					// }, true)
+					// this.clientCreatedBit(this.cancelToastBit)
+				// },
     }
 })
 
 App.initializeSocketEvents();
 View.initializeEvents();
-
-/* tests:
-assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOOPAI'); using Chai
-*/
 
 // woohoo
 
@@ -570,17 +562,10 @@ assert_eq(get_merged({shared: 'WOOPI', remote: 'WZOOPI', local: 'WOOPAI'}),'WZOO
 //// MODULES
 
 /// PLUGGING IN FROM THE SERVER
-events.client.bit_created.onValue(bit => {
-    View.appendBit({
-        left: bit.left,
-        top: bit.top,
-        bit_client_id: bit.bit_client_id,
-    }, true);
-})
-
         
 
 
+/// @todo modulify more things? cf bit dump & loading screen handling
 /// FOCUS MODULE
 events.view.bit_blur.onValue(DOMb => {
     $(DOMb).css('z-index','').removeClass('focus')
@@ -650,57 +635,7 @@ events.view.bit_focus.onValue(DOMb => {
             }))
         ); // height from keyup (si je leave this out je peux faire, après : onkeyup.Combine(bitheightfoussed) et je peux baser "height changed" sur ça)
     }).doAction(x => {dc('Bit height of focussed bit', x)}) // @todo won't work for newly created bit
-    
-    // bit height change when:
-    // onkeyup(ou filter bit_height_focussed from_remote == false).combine(bit_height_focussed)
-    // mais bit_height_focussed c'est le même stream... wtf
-    // grossomodo je veux une slidingWindow(2,2).ON THIS TYPE OF EVENT
-    // slidingWindowOn
-    // onkeyup(ou filter bit_height_focussed from_remote == false).combine(bit_height_focussed [-1])
-    // bit_height_focussed.slidingWindow(2,2).filter(([a,b]) => !b.from_remote && )
-
-    // bit height change when:
-    // events.view.bit_height_focussed.slidingWindow(2,2)
-
-    // bit_height_focused.combine(keyup.combine(remote))
-
-    // bit height change when:
-    // ONKEYUP !!! ça ne peut changer que onkeyup
-    // onkeyup et combine le dernier
-    // events.view.bit_keyup.combine()
-
-
-
-/*    events.view.bit_height = events.view.bit_keyup.merge(events.view.bit_focus).map((DOMb) => ({
-        DOMb,
-        height: $(DOMb).height(),
-        from_remote: false,
-    })).merge(events.view.bit_update_from_remote.map(b => {
-        var DOMb = $('[data-bit-server-id='+b.bit_server_id+']').get(0);
-        var height= $(DOMb).height();
-        return {DOMb, height, from_remote: true};
-    })).doAction(x => {dc('Bit height : ',x)}); */
-    // todo tester externally edited add +3 lignes, ensuite toujours avec le focus j'appuie sur entrée, check si old et new sont les bonnes valeurs
-
-    // todo this needs to be for the same bit
-    // bad, cf sliding window 2-2; [CLIENT HEIGHT BIT] [FROM_REMOTE POUR UN AUTRE BIT] [CLIENT HEIGHT BIT]
-    // TODOTODOTODTODOTDO
-    // basically slidingwindow with a condition?
-    // events.view.bit_height.slidingWindow(Infinity,2).
-    // .filter(old bit = new bit)
-    // .pluck("domb")
-    // .reduce depuis le début si ça a changé?
-    // ==> prendre la dernière valeur pour chaque DOMb !!! c'est une Property en fait !
-    // à chaque nouvel évènement bit_height : si c'est pas from_remote, émettre evt "bit_height_changed" si filter(DOMb==DOMb).last().combine() c'est différent
-    // events.view.bit_height_changed = events.view.bit_height.flatMap(x => {
-    //     if (x.from_remote) return Bacon.never();
-
-    //     events.view.bit_height.skipLast().filter(w => w.DOMb == x.DOMb).map(w => w.height == x.height)
-
-    //     return Bacon.once({DOMb: n.DOMb, old_height: o.height, new_height: n.height});
-    // });
-
-    // c'était probablement plus proche : @@@@ todo
+   
     events.view.bit_height_changed = events.view.bit_height_focussed.slidingWindow(2,2).filter(([o,n]) => !o.from_remote && o.height !== n.height).map(([o,n]) => ({DOMb: n.DOMb, old_height: o.height, new_height: n.height})).doAction(y => dc('Height changed !',y))
 
     events.view.bit_cascade_moved = events.view.bit_height_changed.flatMap(({DOMb, old_height, new_height}) => {
@@ -723,32 +658,7 @@ events.view.bit_focus.onValue(DOMb => {
     }).doAction(x => {dc('Cascade changed bit height:',x)});
 })();
 
-/// ALT+ARROW
-
-// fromDom(keydown,'document','.bit__text').filter(e => e.alt...).map(() => {top: x, left: y}).redirectTo(ClientMovedBit)
-// ou plutôt que redirectTo, c'est le résultat en fait qui est ClientMovedBit!
-// ClientMovedBit = ...
-// plutôt qu'utiliser un standard min/maj pour savoir si c'est exposed ou pas,
-// utiliser Events.View.ClientMovedBit = ...
-// parce que ClientMovedBit est utilisé après aussi par drag, plutôt uilisr next que déclarer
-// :)
-// et evtl déclarer tous les evts au début (juste la structure du json, avec :null)
-// et freeze!!!
-// hmmm ce serait cool de définir le pattern de ce que l'event renvoie, tout en haut aussi
-// YES
-// eventsview are internal to view; don't get accessed by server
-
-    /*
-      /*
-    in movedbit
-    App.clientMovedBit({
-            id: $bit.attr('data-bit-server-id'),
-            top: newY,
-            left: newX
-        })
-    */
-
-events.client.bit_moved = events.view.bit_shortcut_moved.merge(events.view.bit_cascade_moved).doAction(bit => {dc('Client moved bit', bit)}); // @todo clone
+events.client.bit_moved = events.view.bit_shortcut_moved.merge(events.view.bit_cascade_moved).merge(events.view.bit_drag_stop).doAction(bit => {dc('Client moved bit', bit)}); // @todo clone
 
 // !! indicateur de loading :)
 callAfterView();
@@ -759,17 +669,21 @@ events.server.client_edited_bit_sent.onValue(bit => {
 });
 
 
-// todo rem bit.id data
-
 // test ot quickcheck, cf position curseur quand prepend et apend doit être au même endroit, etc. ; quand prepend et append à des endroits différents en-dehors de la sélection, la sélection doit être la même
 
+events.server.loading.skipDuplicates().onValue(is_loading => {
+    console.log('IS LOADING',is_loading)
+    if (is_loading)
+        window.onbeforeunload = function() {
+            if (App.notSaved())
+                return 'Please wait a short while so we can save your message.';
+            else
+                return null;
+        }
+    else
+        window.onbeforeunload = null;
+});
 
-// window.onbeforeunload = function() {
-//     if (App.notSaved())
-//         return 'Please wait a short while so we can save your message.';
-//     else
-//         return null;
-// }
 
 function test() {
     var new_text = Utils.rebase_with_status('WOOPI','WOOPAI','WZOOPI')

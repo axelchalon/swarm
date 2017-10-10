@@ -1,4 +1,4 @@
-var events = {server: {}, client: {}, view: {}};
+var events = {server: {}, client: {}, view: {}}; // <-- @todo freeze ; ne pas permettre de réassigner quand on a assigné une fois
 
 // # EVENTS
 // todo stream roomname pour pouvoir changer de room ez-li
