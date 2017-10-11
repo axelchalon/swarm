@@ -224,6 +224,7 @@ var View = {
         // cascade part of the code
         // BitKeyUp called with Bit (not bit__text, otherwise it'd be bittextkeyup)
         events.view.bit_keyup = $('#bit-holder').asEventStream('keyup', '.bit__text').map(e => $(e.target).closest('.bit').get(0))
+        events.view.bit_keydown = $('#bit-holder').asEventStream('keydown', '.bit__text').map(e => $(e.target).closest('.bit').get(0))
 
         // todo "bits-holder" pas "bit-holder"
         // todo throttle ici ; ne pas calculer le getplaintext à chaque fois
@@ -595,16 +596,17 @@ events.view.bit_focus.onValue(DOMb => {
 
             if (bottom == top) return; // null height
 
-            var boundaries = [
-                {y: [refBottom,refBottom+4*thisView.GRID_Y], x: [refLeft-4*thisView.GRID_X,refLeft+4*thisView.GRID_X]}, // down
-                // {y: [refTop,refBottom], x: [refLeft-4*thisView.GRID_X-$(this).width(),refLeft]}, // left
-                // {y: [refTop,refBottom], x: [refRight,refRight+4*thisView.GRID_X]} // right
-            ];
+            // var boundaries = [
+            //     {y: [refBottom,refBottom+4*thisView.GRID_Y], x: [refLeft-4*thisView.GRID_X,refLeft+4*thisView.GRID_X]}, // down
+            //     // {y: [refTop,refBottom], x: [refLeft-4*thisView.GRID_X-$(this).width(),refLeft]}, // left
+            //     // {y: [refTop,refBottom], x: [refRight,refRight+4*thisView.GRID_X]} // right
+            // ];
 
-            var bitIsInBoundary = (boundary) =>
-                    top >= boundary.y[0] && top <= boundary.y[1] &&
-                    left >= boundary.x[0] && left <= boundary.x[1]
-            if (boundaries.some(bitIsInBoundary))
+            // var bitIsInBoundary = (boundary) =>
+            //         top >= boundary.y[0] && top <= boundary.y[1] &&
+            //         left >= boundary.x[0] && left <= boundary.x[1]
+            // if (boundaries.some(bitIsInBoundary))
+            if (top >= refBottom && top <= refBottom+4*thisView.GRID_Y && ((right >= refLeft && right <= refRight) || (left >= refLeft && left <= refRight) || (left <= refLeft && right >= refRight)))
                 adjacent$Bits.push($(this)); // {id: $(this).attr('data-id')})
         });
 
@@ -628,7 +630,7 @@ events.view.bit_focus.onValue(DOMb => {
             return {DOMb, height, from_remote: true};
         })) // height from remote
         .merge(
-            events.view.bit_keyup.map((DOMb) => ({
+            events.view.bit_keydown.map((DOMb) => ({
                 DOMb,
                 height: $(DOMb).height(),
                 from_remote: false,
@@ -640,7 +642,7 @@ events.view.bit_focus.onValue(DOMb => {
 
     events.view.bit_cascade_moved = events.view.bit_height_changed.flatMap(({DOMb, old_height, new_height}) => {
         var $bit = $(DOMb);
-        var difference = new_height - old_height;
+        var difference = new_height - old_height; // todo seulement quand ça descend ?
         var res = [];
         get$BitsAdjacentTo$Bit($(DOMb),old_height).forEach(function($el) {
             var newY = parseInt($el[0].style.top)+difference;

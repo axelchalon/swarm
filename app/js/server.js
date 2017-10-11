@@ -50,29 +50,12 @@ var callAfterView = () => {
     })
     
     events.client.bit_created.onValue(bit => {
+        setTimeout(() => {
         bit.id = bit.bit_client_id;
+        console.log('(sending new)');
         this.socket.emit('new', bit); //todo wait until edit ?
+        },3000);
     })
-
-    events.client.bit_moved
-    .flatMapLatest(bit => { // todo DRY ==> .waitForServerId()
-        if (!bit.bit_server_id) {
-            var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
-            return Bacon.constant(bit).combine(assocStream,(bit,bit_server_id) => Object.assign({}, bit, {bit_server_id}))
-        } else {
-            return Bacon.constant(bit);
-        }
-    })
-    .onValue(bit => {
-        ds('Sending move to server', bit);
-        this.socket.emit('move', {
-            id: bit.bit_server_id,
-            left: bit.left,
-            top: bit.top
-        });
-    })
-
-
 
     var SERVER_SEND_THROTTLE_INTERVAL = 2500;
 
@@ -84,6 +67,16 @@ var callAfterView = () => {
             return Bacon.constant(bit).combine(assocStream,(bit, bit_server_id) => Object.assign({}, bit, {bit_server_id})).first();
         }
     }
+
+    events.server.bit_moved_sent = events.client.bit_moved.flatMap(hydrateWithServerId);
+    events.server.bit_moved_sent.onValue(bit => {
+        ds('Sending move to server', bit);
+        this.socket.emit('move', {
+            id: bit.bit_server_id,
+            left: bit.left,
+            top: bit.top
+        });
+    })
 
     events.server.bit_edit_sent = events.client.bit_edited.throttle(SERVER_SEND_THROTTLE_INTERVAL).flatMap(hydrateWithServerId);
     // events.client.bit_edited.flatMap(bit => Bacon.once("x").awaiting(events.server.bit_edit_sent.filter(obj => obj.bit_server_id == bit.bit_server_id)))
@@ -136,7 +129,8 @@ var callAfterView = () => {
                     console.error('?',ev);
                 }
         })
-        .doAction(x => ds('Set of update requests not yet sent:', x)).map(set => set.size > 0).skipDuplicates();;
+        .skipDuplicates()
+        .doAction(x => ds('Set of update requests not yet sent:', x)).map(set => set.size > 0).skipDuplicates();
 
     events.server.requests_pending.onValue(x => ds('Requests pending?', x))
     /*
