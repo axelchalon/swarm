@@ -44,17 +44,17 @@ events.server.bit_edited = Bacon.fromEvent(socket, 'edit').doAction(b => ds('[Re
 
 // Subscriptions to client
 var callAfterView = () => {
-    events.client.bit_deleted.onValue(bit => {
+    events.client.bit_deleted.flatMap(hydrateWithServerId).onValue(bit => {
         ds('[Emitting] Client deleted bit; emitting \'delete\' event');
         this.socket.emit('delete', bit.bit_server_id);
     })
     
     events.client.bit_created.onValue(bit => {
-        setTimeout(() => {
+        // setTimeout(() => {
         bit.id = bit.bit_client_id;
-        console.log('(sending new)');
+        // console.log('(sending new)');
         this.socket.emit('new', bit); //todo wait until edit ?
-        },3000);
+        // },3000);
     })
 
     var SERVER_SEND_THROTTLE_INTERVAL = 2500;
