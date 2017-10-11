@@ -42,8 +42,22 @@ events.server.bit_moved = Bacon.fromEvent(socket, 'move').doAction(b => ds('[Rec
 events.server.bit_deleted = Bacon.fromEvent(socket, 'delete').doAction(b => ds('[Received] Bit was deleted', b));
 events.server.bit_edited = Bacon.fromEvent(socket, 'edit').doAction(b => ds('[Received] Bit was edited', b));
 
+const SERVER_SEND_THROTTLE_INTERVAL = 2500;
+
 // Subscriptions to client
 var callAfterView = () => {
+
+    // todo create bit & move doesn't work TODO
+    // et TODO delete
+    let hydrateWithServerId = bit => {
+        if (bit.bit_server_id) {
+            return Bacon.once(bit);
+        } else {
+            var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
+            return Bacon.constant(bit).combine(assocStream,(bit, bit_server_id) => Object.assign({}, bit, {bit_server_id})).first();
+        }
+    }
+
     events.client.bit_deleted.flatMap(hydrateWithServerId).onValue(bit => {
         ds('[Emitting] Client deleted bit; emitting \'delete\' event');
         this.socket.emit('delete', bit.bit_server_id);
@@ -56,17 +70,6 @@ var callAfterView = () => {
         this.socket.emit('new', bit); //todo wait until edit ?
         // },3000);
     })
-
-    var SERVER_SEND_THROTTLE_INTERVAL = 2500;
-
-    let hydrateWithServerId = bit => {
-        if (bit.bit_server_id) {
-            return Bacon.once(bit);
-        } else {
-            var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
-            return Bacon.constant(bit).combine(assocStream,(bit, bit_server_id) => Object.assign({}, bit, {bit_server_id})).first();
-        }
-    }
 
     events.server.bit_moved_sent = events.client.bit_moved.flatMap(hydrateWithServerId);
     events.server.bit_moved_sent.onValue(bit => {
