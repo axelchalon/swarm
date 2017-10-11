@@ -664,21 +664,17 @@ events.client.bit_moved = events.view.bit_shortcut_moved.merge(events.view.bit_c
 callAfterView();
 
 // flow: dire qu'on attend Bit_ServerId (précise)
-events.server.client_edited_bit_sent.onValue(bit => {
+events.server.bit_edit_sent.onValue(bit => {
     $('[data-bit-server-id=' + bit.bit_server_id + ']').data('shared',bit.text);
 });
 
 
 // test ot quickcheck, cf position curseur quand prepend et apend doit être au même endroit, etc. ; quand prepend et append à des endroits différents en-dehors de la sélection, la sélection doit être la même
 
-events.server.loading.skipDuplicates().onValue(is_loading => {
-    console.log('IS LOADING',is_loading)
-    if (is_loading)
+events.server.requests_pending.onValue(requests_pending => {
+    if (requests_pending)
         window.onbeforeunload = function() {
-            if (App.notSaved())
-                return 'Please wait a short while so we can save your message.';
-            else
-                return null;
+            return 'Please wait a short while so we can save your message.';
         }
     else
         window.onbeforeunload = null;

@@ -72,20 +72,133 @@ var callAfterView = () => {
         });
     })
 
-    /*
 
-    hydrateWithServerId = bit => {
-        
+
+    var SERVER_SEND_THROTTLE_INTERVAL = 2500;
+
+    let hydrateWithServerId = bit => {
+        if (bit.bit_server_id) {
+            return Bacon.once(bit);
+        } else {
+            var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
+            return Bacon.constant(bit).combine(assocStream,(bit, bit_server_id) => Object.assign({}, bit, {bit_server_id})).first();
+        }
     }
 
-    events.server.bit_edit_sent = events.client.bit_edited.throttle(SERVER_SEND_THROTTLE_INTERVAL).flatMap(?)(hydrateWithServerId)
-    events.client.bit_edited.flatMap(bit => Bacon.once("x").awaiting(events.server.bit_edit_sent.filter(bit => bit.id)))
+    events.server.bit_edit_sent = events.client.bit_edited.throttle(SERVER_SEND_THROTTLE_INTERVAL).flatMap(hydrateWithServerId);
+    // events.client.bit_edited.flatMap(bit => Bacon.once("x").awaiting(events.server.bit_edit_sent.filter(obj => obj.bit_server_id == bit.bit_server_id)))
+    // {bit: {}, loading: true} {bit: {}, loading: false}
+
+    events.server.bit_edit_sent.onValue(bit => {
+        ds('Sending edit to server', bit);
+        this.socket.emit('edit', {
+            id: bit.bit_server_id,
+            text: bit.text
+        });
+    })
+
+    events.server.requests_pending = Bacon.mergeAll(
+            events.client.bit_edited.map(ev => ({stream: 'BIT_EDITED', event: ev})),
+            events.server.bit_temp_id_is_id.map(ev => ({stream: 'BIT_TEMP_ID_IS_ID', event: ev})),
+            events.server.bit_edit_sent.map(ev => ({stream: 'BIT_EDIT_SENT', event: ev}))
+        )
+        .scan(
+            new Set(),
+            (set, ev) => {
+                if (ev.stream == 'BIT_EDITED') {
+                    ev = ev.event;
+                    if (ev.bit_server_id)
+                        set.add(`BIT_SERVER_ID ${ev.bit_server_id}`)
+                    else
+                        set.add(`BIT_CLIENT_ID ${ev.bit_client_id}`)
+                    return set;
+                } else if (ev.stream == 'BIT_TEMP_ID_IS_ID') {
+                    ev = ev.event;
+                    var new_set = new Set(set);
+                    set.forEach(v => {
+                        if (v == `BIT_CLIENT_ID ${ev.temp_id}`) {
+                            new_set.delete(v);
+                            new_set.add(`BIT_SERVER_ID ${ev.id}`);
+                        }
+                    });
+                    return new_set;
+                } else if (ev.stream == 'BIT_EDIT_SENT') {
+                    ev = ev.event;
+                    var new_set = new Set(set);
+                    set.forEach(v => {
+                        if (v == `BIT_SERVER_ID ${ev.bit_server_id}`) {
+                            new_set.delete(v);
+                        }
+                    });
+                    return new_set;
+                }
+                else {
+                    console.error('?',ev);
+                }
+        })
+        .doAction(x => ds('Set of update requests not yet sent:', x)).map(set => set.size > 0).skipDuplicates();;
+
+    events.server.requests_pending.onValue(x => ds('Requests pending?', x))
+    /*
+
+
+    events.client.bit_edited.flatMap(bit => events.client.bit_edited.filter(sameBitId).last().awaiting(events.server.bit_edit_sent.filter(sameBitId).map(bool => {bit: bit, loading: bool})))
+    // loading c'est : 
+    à chaque fois qu'il y a un client.bit_edit, loading: true
+    à chaque fois qu'il y a un bit_edit_sent ====> read on up on baconjs properties !
+
+    je peux utiliser Bacon.end pour chaque... 
+    un stream qui émet des streams qui peuvent end
+    et scan(stream is finished) ?
+
+{je peux utiliser events.client.bit_edited.flatMAp(hydrateWithServerId) ?}
+
+  (edit bit 3)  (edit bit 3)     (edit bit 3 sent)
+       v              v                 v
+
+
+  (edit bit cid 3)  (edit bit cid sid 5)         (edit bit sid 3 sent)
+       v                     v                             v <== comment faire pour que ça annule [edit bit cid 3] et [edit bit sid 5] ?
+            ^
+     clientIdIsServerId
+           3,4
+
+cid ça veut dire que c'est moi qui ai créé le bit
+
+
+// OK LE FOLLOWING EST TOP mais
+// woops comment je fais pour comparer deux bits ? par ex si awaiting...
+    events.server.loading = Bacon.combineAsArray(events.client.bit_edited, events.server.bit_edit_sent)
+
+       loading=
+    fold sur [combine EditBit et EditBitSent] avec seed []
+    - quand je tombe sur un edit bit 3, j'add 3 à l'array. [3]
+    - quand je tombe sur un edit bit 3 sent, je remove l'élément 3 de l'array. []
+    - .map(x => x.length)
+
+    events.client.bit_edited.reduce(false, )
+
+
+
+
+
+
+
+    et il y aura aussi move par exemple ; ce sera pareil
+    events.server.loading = Bacon.mergeAll(
+        [
+            ? any ?
+        ]
+    )
+
+    et debounce le loading pour l'affichage... (si loading a pris cette valeur pendant plus de X secondes)
 
     */
 
     // todo check workflow
     
-    var SERVER_SEND_THROTTLE_INTERVAL = 500;
+    /*
+    old version
     var client_edited_bit_throttled = events.client.bit_edited.throttle(SERVER_SEND_THROTTLE_INTERVAL);
     var client_edited_bit_throttled_with_server_id_known_streams = client_edited_bit_throttled.filter(bit => bit.bit_server_id).map(bit => Bacon.constant(bit).first()).doAction(t => ds('Client bit edit throttled with known server id')); // Bacon.once(bit)
     var client_edited_bit_throttled_with_server_id_unknown_streams = client_edited_bit_throttled
@@ -109,6 +222,17 @@ var callAfterView = () => {
         .merge(client_edited_bit_throttled_with_server_id_unknown_streams).flatMapLatest(a => a).doAction(t => ds('Edited bit sent',t)) // @todo notsure about this one
         // ^todo this logging is confusing "edited bit sent"; "sending bit edit to server"
     events.server.loading.onValue(() => 1);
+
+    events.server.client_edited_bit_sent.onValue(bit => {
+        ds('Sending edit to server', bit);
+        this.socket.emit('edit', {
+            id: bit.bit_server_id,
+            text: bit.text
+        });
+    })
+    */
+
+
     // je peux utiliser .zip à la place
     // "observable.awaiting(otherObservable) creates a Property that indicates whether observable is awaiting otherObservable, i.e. has produced a value after the latest value from otherObservable."
     // si sent_requests.awaiting(received_requests) alors loading
@@ -136,13 +260,6 @@ var callAfterView = () => {
     // et add +10ms pour pas que bacon.constant affiche "loading" et ensuite "not loading"
     // (s'assurer l'ordre)
 
-    events.server.client_edited_bit_sent.onValue(bit => {
-        ds('Sending edit to server', bit);
-        this.socket.emit('edit', {
-            id: bit.bit_server_id,
-            text: bit.text
-        });
-    })
 
     // moved bit: make sure that is has server_id
     // use middleware throttler, the same everywhere! go
