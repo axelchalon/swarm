@@ -215,7 +215,7 @@ small {
 
 	div#microwave {
 		position: fixed;
-		font-size: 10px;
+		font-size: 9px;
 		line-height: 1.5;
 		color: black;
 		bottom: 0;
@@ -224,9 +224,21 @@ small {
 		border-top-left-radius: 5px;
 	}
 
+	div#oven {
+		position: fixed;
+		font-size: 9px;
+		line-height: 1.5;
+		color: black;
+		bottom: 0;
+		right: 0;
+		padding: 3px 5px;
+		border-top-left-radius: 5px;
+		text-align: right;
+	}
+
 	div#toast {
 		position: fixed;
-		font-size: 10px;
+		font-size: 9px;
 		line-height: 1.5;
 		color: black;
 		text-align: right;

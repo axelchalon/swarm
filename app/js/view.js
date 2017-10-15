@@ -117,7 +117,8 @@ var View = {
         // to solve circular dependency: declare client first, then server; subscribe after?
         // ou sinon utiliser un mécanisme qui call que une fois que c'est défini
         events.client.bit_deleted = $('#bit-holder').asEventStream('mousedown', '.bit__delete').map(e => ({
-            id: $(e.target).parent().data('bit-server-id'),
+            bit_client_id: $(e.target).parent().data('bit-client-id'),
+            bit_server_id: $(e.target).parent().data('bit-server-id'),
             text: thisView.getPlaintextFrom$BitMessage($(e.target).siblings('.bit__text')),
             left: $(e.target).parent().css('left'),
             top: $(e.target).parent().css('top'),
@@ -177,13 +178,15 @@ var View = {
                     return {   
                         left: newX,
                         top: newY,
-                        bit_client_id: $bit.data('bit-client-id')   
+                        bit_client_id: $bit.data('bit-client-id'),  
+                        bit_server_id: $bit.data('bit-server-id'),  
                     }
                 else
                     return {
                         left: newX,
                         top: newY,
-                        bit_server_id: $bit.data('bit-server-id')
+                        bit_client_id: $bit.data('bit-client-id'),
+                        bit_server_id: $bit.data('bit-server-id'),
                     }
             })
             .doAction(bit => dv('View moved bit using Alt+ArrowKey shortcut', bit));
@@ -328,10 +331,10 @@ var View = {
                             ui.position.top = 0;
                         },
                         start: function(e) {
-                            events.view.bit_drag_start.push({bit_server_id: bit.bit_server_id, bit_client_id: bit.bit_client_id, DOMb: $bit.get(0)});
+                            events.view.bit_drag_start.push({bit_server_id: $bit.attr('data-bit-server-id'), bit_client_id: $bit.attr('data-bit-client-id'), DOMb: $bit.get(0)});
                         },
                         stop: function(e, ui) {
-                            events.view.bit_drag_stop.push({bit_server_id: bit.bit_server_id, bit_client_id: bit.bit_client_id, DOMb: $bit.get(0), left: ui.position.left, top: ui.position.top});
+                            events.view.bit_drag_stop.push({bit_server_id: $bit.attr('data-bit-server-id'), bit_client_id: $bit.attr('data-bit-client-id'), DOMb: $bit.get(0), left: ui.position.left, top: ui.position.top});
                         }
                     });
 
@@ -383,6 +386,7 @@ var App = new Vue({
         showCancelToast: false,
         showCancelToastTimeout: -1,
         connectedUsersCount: 0,
+        socketEndpoint: SOCKET_ENDPOINT,
     },
     methods: {
         initializeSocketEvents: function() { // purely reactive
@@ -621,6 +625,7 @@ events.view.bit_focus.onValue(DOMb => {
 
     let dc = debug('view-cascade');
 
+    // todo quand on appuie sur entrée en continu ça émet beaucoup trop d'évènements
     events.view.bit_height_focussed = events.view.bit_focus.flatMapLatest((DOMb) => { // todo utiliser Bit$ à la place de Bit. Bit$ contient: Bit$.$bit ; Bit$.bit_serverid etc. grosso modo comme Bit mais hydraté avec vue (ou juste vue)
         var $bit = $(DOMb);
         var bit_server_id = $(DOMb).attr('data-server-id');
@@ -630,7 +635,7 @@ events.view.bit_focus.onValue(DOMb => {
             return {DOMb, height, from_remote: true};
         })) // height from remote
         .merge(
-            events.view.bit_keydown.map((DOMb) => ({
+            events.view.bit_keydown.delay(10).map((DOMb) => ({
                 DOMb,
                 height: $(DOMb).height(),
                 from_remote: false,
@@ -638,7 +643,7 @@ events.view.bit_focus.onValue(DOMb => {
         ); // height from keyup (si je leave this out je peux faire, après : onkeyup.Combine(bitheightfoussed) et je peux baser "height changed" sur ça)
     }).doAction(x => {dc('Bit height of focussed bit', x)}) // @todo won't work for newly created bit
    
-    events.view.bit_height_changed = events.view.bit_height_focussed.slidingWindow(2,2).filter(([o,n]) => !o.from_remote && o.height !== n.height).map(([o,n]) => ({DOMb: n.DOMb, old_height: o.height, new_height: n.height})).doAction(y => dc('Height changed !',y))
+    events.view.bit_height_changed = events.view.bit_height_focussed.slidingWindow(2,2).filter(([o,n]) => !o.from_remote && o.DOMb == n.DOMb && o.height !== n.height).map(([o,n]) => ({DOMb: n.DOMb, old_height: o.height, new_height: n.height})).doAction(y => dc('Height changed !',y))
 
     events.view.bit_cascade_moved = events.view.bit_height_changed.flatMap(({DOMb, old_height, new_height}) => {
         var $bit = $(DOMb);
@@ -650,6 +655,7 @@ events.view.bit_focus.onValue(DOMb => {
 
             // @todo peut être seulement client id
             res.push({
+                bit_client_id: $el.attr('data-bit-client-id'),
                 bit_server_id: $el.attr('data-bit-server-id'),
                 top: newY,
                 left: $el[0].style.left

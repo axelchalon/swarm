@@ -12,3 +12,8 @@ var flags = flags_string.split('').reduce((acc, flagLetter) => {
     return acc;
 }, {});
 events.client.pad = Bacon.constant({pad: room_name, flags: flags});
+
+if (location.hostname == 'swarm.ovh' || 1)
+    var SOCKET_ENDPOINT = 'https://dashpad.me:1336';
+else
+    var SOCKET_ENDPOINT = 'http://127.0.0.1:1336';

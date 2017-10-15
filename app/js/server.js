@@ -20,12 +20,7 @@ var Config = {
 // donc sûrement Events.Server
 
 var ds = debug('events-server');
-var socket;
-
-if (location.hostname == 'swarm.ovh' || 1)
-    socket = io.connect('https://dashpad.me:1336');
-else
-    socket = io.connect('http://127.0.0.1:1336');
+var socket = io.connect(SOCKET_ENDPOINT);
 
 events.server.connected = Bacon.fromEvent(socket, 'connect').doAction(() => ds('[Connected]'));
 events.server.connected.combine(events.client.pad, (c,pad) => ({c, pad: pad.pad})).onValue(({c,pad}) => {
@@ -42,17 +37,17 @@ events.server.bit_moved = Bacon.fromEvent(socket, 'move').doAction(b => ds('[Rec
 events.server.bit_deleted = Bacon.fromEvent(socket, 'delete').doAction(b => ds('[Received] Bit was deleted', b));
 events.server.bit_edited = Bacon.fromEvent(socket, 'edit').doAction(b => ds('[Received] Bit was edited', b));
 
-const SERVER_SEND_THROTTLE_INTERVAL = 2500;
+const SERVER_SEND_THROTTLE_INTERVAL = 500;
 
 // Subscriptions to client
 var callAfterView = () => {
 
-    // todo create bit & move doesn't work TODO
-    // et TODO delete
+    // Requirement: when we send event from the client, bit info should have server id if it's available already
     let hydrateWithServerId = bit => {
         if (bit.bit_server_id) {
             return Bacon.once(bit);
         } else {
+            // waits for future temp_id_is_id
             var assocStream = events.server.bit_temp_id_is_id.filter(obj => obj.temp_id == bit.bit_client_id).map('.id');
             return Bacon.constant(bit).combine(assocStream,(bit, bit_server_id) => Object.assign({}, bit, {bit_server_id})).first();
         }
@@ -64,14 +59,15 @@ var callAfterView = () => {
     })
     
     events.client.bit_created.onValue(bit => {
-        // setTimeout(() => {
+        setTimeout(() => {
         bit.id = bit.bit_client_id;
         // console.log('(sending new)');
         this.socket.emit('new', bit); //todo wait until edit ?
-        // },3000);
+        },3000);
     })
 
     events.server.bit_moved_sent = events.client.bit_moved.flatMap(hydrateWithServerId);
+    // todo throttle les move consécutifs d'un même bit_server_id (quand on appuie sur entrée par ex.)
     events.server.bit_moved_sent.onValue(bit => {
         ds('Sending move to server', bit);
         this.socket.emit('move', {
