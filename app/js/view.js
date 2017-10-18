@@ -17,6 +17,7 @@ if ( /mobile/i.test(navigator.userAgent)) {
 
 var Config = {
     OT_ENABLED: true,
+    CASCADE: false,
 };
 
 // # UTILS
@@ -582,6 +583,10 @@ events.view.bit_focus.onValue(DOMb => {
 /// CASCADE
 // this could go in view utils
 (function() {
+    if (!Config.CASCADE) {
+        events.view.bit_cascade_moved = new Bacon.Bus();
+        return;
+    }
     function get$BitsAdjacentTo$Bit($bit,actualHeight) { // get bits to the left, right and bottom
         var refTop = parseInt($bit[0].style.top);
         var refLeft = parseInt($bit[0].style.left);
